@@ -33,7 +33,7 @@ void iFFBS_(arma::vec& alpha_js,
             arma::imat& numInfecMat, 
             arma::imat& SocGroup,
             arma::imat& mPerGroup,
-            arma::ivec& idVecAll, 
+            arma::ivec& idVecAll,           // not used
             arma::mat& logProbStoSgivenSorE, 
             arma::mat& logProbStoEgivenSorE, 
             arma::mat& logProbStoSgivenI, 
