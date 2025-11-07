@@ -1,1 +1,5 @@
 WPbadgerData/
+outputs_seed*/
+*.csv
+*.jld2
+*.rds

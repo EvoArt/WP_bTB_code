@@ -196,14 +196,14 @@ function iFFBS_(alpha_js,
   if maxt_i>1
     for tt=maxt_i-1:-1:0
       
-      g = SocGroup[id-1, tt+t0]
-      mgt = mPerGroup[g-1, tt+t0]
+      g = SocGroup[id+1, tt+t0+1]
+      mgt = mPerGroup[g+1, tt+t0+1]
       
-      a = alpha_js[g-1]
+      a = alpha_js[g+1]
         
-      inf_mgt = numInfecMat[g-1, tt+t0]/(^(float(mgt + 1.0)/K, q))  
+      inf_mgt = numInfecMat[g+1, tt+t0+1]/((Float64(mgt + 1.0)/K)^q)  
 
-      prDeath = probDyingMat[id-1, tt+1+t0]
+      prDeath = probDyingMat[id+1, tt+1+t0]
       
       p00 = (1-prDeath)*exp(-a - b*inf_mgt)
       p01 = (1-prDeath)*(1 - exp(-a - b*inf_mgt))
@@ -222,26 +222,26 @@ function iFFBS_(alpha_js,
       probI_t=0.0
       probDead_t=0.0
       
-      if X[id-1,tt+1+t0] == 0
-        probSuscep_t = (p00*filtProb[tt+t0, 0])/(predProb[tt+1+t0, 0])
+      if X[id+1, tt+1+t0+1] == 0
+        probSuscep_t = (p00*filtProb[tt+t0+1, 1])/(predProb[tt+1+t0+1, 1])
         probE_t = 0.0
         probI_t = 0.0
         probDead_t = 0.0
-      elseif X[id-1,tt+1+t0] == 3
-        probSuscep_t = (p01*filtProb[tt+t0, 0])/(predProb[tt+1+t0, 1])
-        probE_t = (p11*filtProb[tt+t0, 1])/(predProb[tt+1+t0, 1])
+      elseif X[id+1, tt+1+t0+1] == 3
+        probSuscep_t = (p01*filtProb[tt+t0+1, 1])/(predProb[tt+1+t0+1, 2])
+        probE_t = (p11*filtProb[tt+t0+1, 2])/(predProb[tt+1+t0+1, 2])
         probI_t = 0.0
         probDead_t = 0.0
-      elseif X[id-1,tt+1+t0] == 1
+      elseif X[id+1, tt+1+t0+1] == 1
         probSuscep_t = 0.0
-        probE_t = (p12*filtProb[tt+t0, 1])/(predProb[tt+1+t0, 2])
-        probI_t = (p22*filtProb[tt+t0, 2])/(predProb[tt+1+t0, 2])
+        probE_t = (p12*filtProb[tt+t0+1, 2])/(predProb[tt+1+t0+1, 3])
+        probI_t = (p22*filtProb[tt+t0+1, 3])/(predProb[tt+1+t0+1, 3])
         probDead_t = 0.0
-      elseif X[id-1,tt+1+t0] == 9
-        probSuscep_t = (p09*filtProb[tt+t0, 0])/(predProb[tt+1+t0, 3])
-        probE_t = (p19*filtProb[tt+t0, 1])/(predProb[tt+1+t0, 3])
-        probI_t = (p29*filtProb[tt+t0, 2])/(predProb[tt+1+t0, 3])
-        probDead_t = filtProb[tt+t0, 3]/predProb[tt+1+t0, 3]
+      elseif X[id+1, tt+1+t0+1] == 9
+        probSuscep_t = (p09*filtProb[tt+t0+1, 1])/(predProb[tt+1+t0+1, 4])
+        probE_t = (p19*filtProb[tt+t0+1, 2])/(predProb[tt+1+t0+1, 4])
+        probI_t = (p29*filtProb[tt+t0+1, 3])/(predProb[tt+1+t0+1, 4])
+        probDead_t = filtProb[tt+t0+1, 4]/predProb[tt+1+t0+1, 4]
       end
       
       probs = @zero_based [probSuscep_t, probE_t, probI_t, probDead_t]
@@ -253,7 +253,7 @@ function iFFBS_(alpha_js,
       newStatus = sample(states,Weights(probs))
 
 
-      X[id-1, tt+t0] = newStatus
+      X[id+1, tt+t0+1] = newStatus
       
     end
   end
@@ -442,10 +442,10 @@ function iFFBS_(alpha_js,
   # at id==m, we don't need to update logTransProbRest, because
   # the next individual (id==1) will be updated separately to 
   # consider new rate values
-  if(id<m){
+  if id < m
     
     c = (id)*(maxt-1)
-    g_1
+    # g_1  # This variable will be used later
 
     # current individual (id) will be in logProbRest when updating idNext
     for tt in 0:maxt-2
