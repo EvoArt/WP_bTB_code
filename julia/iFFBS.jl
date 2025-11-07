@@ -1,4 +1,9 @@
 
+using OffsetArrays: Origin # to use 0-based indexing
+
+macro zero_based(x)
+  return :( Origin(0)($x) )
+end
 
 function iFFBS(alpha_js, 
             b, q, tau,k, K,
@@ -57,8 +62,8 @@ function iFFBS(alpha_js,
   
   prDeath = 0.5 # place holder
             # These lines allocate. Does it matter?
-  unnormFiltProb = zeros(numStates)
-  transProbRest = zeros(numStates)
+  unnormFiltProb = @zero_based zeros(numStates)
+  transProbRest =  @zero_based zeros(numStates)
   
 
   nuE_i = 0.0
@@ -82,36 +87,36 @@ function iFFBS(alpha_js,
   predProb[t0,3] = 0.0
   
   
-  if(t0 < maxt-1){
+  if t0 < maxt-1
               # why is transProbRest not pre calculated for each row of logTransProbRest?
               # or tick off each t0 and only calc once for each?
               # (Maybe answered below - updating transprobs in loop).
               # Breaking code into smaller functions may make thi clearer.
               # also logTransProbRest.row(t0) allocates.
-    arma::rowvec logTransProbRest_row = logTransProbRest.row(t0);
-    transProbRest = normTransProbRest(logTransProbRest_row);
-    for(int s=0; s<numStates; s++){
-      unnormFiltProb[s] = corrector(t0,s) * predProb(t0,s) * transProbRest[s];
-    }
-  }else{
-    for(int s=0; s<numStates; s++){
-      unnormFiltProb[s] = corrector(t0,s) * predProb(t0,s);
-    }
-  }
-  filtProb.row(t0) = unnormFiltProb / sum(unnormFiltProb);
+    logTransProbRest_row = @zero_based logTransProbRest[t0,:]
+    transProbRest = normTransProbRest(logTransProbRest_row)
+    for s in 0:numStates-1
+      unnormFiltProb[s] = corrector[t0,s] * predProb[t0,s] * transProbRest[s]
+    end
+  else
+    for s in 0:numStates-1
+      unnormFiltProb[s] = corrector[t0,s] * predProb[t0,s]
+    end
+  end
+  filtProb[t0,:] .= unnormFiltProb ./ sum(unnormFiltProb);
   
             # I guess because of movement between groups and births/deaths it is
             # not straightforward to do pre-calc for each group
-  if(maxt_i>2){
+  if maxt_i>2
     # t=2,...,T-1
-    for(int tt=1; tt<(maxt_i-1); tt++){
+    for tt in 1:maxt_i-2
       
-      int g = SocGroup(id-1, tt-1+t0);
+      g = SocGroup[id-1, tt-1+t0]
 
-      double prDeath = probDyingMat(id-1, tt+t0);
+      prDeath = probDyingMat[id-1, tt+t0]
       
-      double p00 = (1-prDeath)*exp(logProbStoSgivenSorE(g-1L, tt-1+t0)); 
-      double p01 = (1-prDeath)*exp(logProbStoEgivenSorE(g-1L, tt-1+t0));
+      p00 = (1-prDeath)*exp(logProbStoSgivenSorE[g-1, tt-1+t0])
+      double p01 = (1-prDeath)*exp(logProbStoEgivenSorE(g-1, tt-1+t0));
       double p11 = (1-prDeath)*exp(logProbEtoE);
       double p12 = (1-prDeath)*exp(logProbEtoI);
       double p22 = (1-prDeath);
@@ -144,8 +149,8 @@ function iFFBS(alpha_js,
     
     prDeath = probDyingMat(id-1, tt+t0);
     
-    double p00 = (1-prDeath)*exp(logProbStoSgivenSorE(g-1L, tt-1+t0)); 
-    double p01 = (1-prDeath)*exp(logProbStoEgivenSorE(g-1L, tt-1+t0));
+    double p00 = (1-prDeath)*exp(logProbStoSgivenSorE(g-1, tt-1+t0)); 
+    double p01 = (1-prDeath)*exp(logProbStoEgivenSorE(g-1, tt-1+t0));
     double p11 = (1-prDeath)*exp(logProbEtoE);
     double p12 = (1-prDeath)*exp(logProbEtoI);
     double p22 = (1-prDeath);
@@ -180,7 +185,7 @@ function iFFBS(alpha_js,
   
   # Backward Sampling --------------------------------------
     
-  arma::ivec states = {0L, 3L, 1L, 9L};
+  arma::ivec states = {0, 3, 1, 9};
   arma::vec probs = filtProb.row(endTime-1).t();
   
   int newStatus = RcppArmadillo::sample(states, 1, true, probs)[0];
@@ -194,7 +199,7 @@ function iFFBS(alpha_js,
       int g = SocGroup(id-1, tt+t0);
       int mgt = mPerGroup(g-1, tt+t0);
       
-      double a = alpha_js[g-1L];
+      double a = alpha_js[g-1];
         
       double inf_mgt = numInfecMat(g-1, tt+t0)/(pow((double)(mgt + 1.0)/K, q));  
 
@@ -217,22 +222,22 @@ function iFFBS(alpha_js,
       double probI_t=0.0;
       double probDead_t=0.0;
       
-      if(X(id-1,tt+1+t0) == 0L){
+      if(X(id-1,tt+1+t0) == 0){
         probSuscep_t = (p00*filtProb(tt+t0, 0))/(predProb(tt+1+t0, 0));
         probE_t = 0.0;
         probI_t = 0.0;
         probDead_t = 0.0;
-      }else if(X(id-1,tt+1+t0) == 3L){
+      }else if(X(id-1,tt+1+t0) == 3){
         probSuscep_t = (p01*filtProb(tt+t0, 0))/(predProb(tt+1+t0, 1));
         probE_t = (p11*filtProb(tt+t0, 1))/(predProb(tt+1+t0, 1));
         probI_t = 0.0;
         probDead_t = 0.0;
-      }else if(X(id-1,tt+1+t0) == 1L){
+      }else if(X(id-1,tt+1+t0) == 1){
         probSuscep_t = 0.0;
         probE_t = (p12*filtProb(tt+t0, 1))/(predProb(tt+1+t0, 2));
         probI_t = (p22*filtProb(tt+t0, 2))/(predProb(tt+1+t0, 2));
         probDead_t = 0.0;
-      }else if(X(id-1,tt+1+t0) == 9L){
+      }else if(X(id-1,tt+1+t0) == 9){
         probSuscep_t = (p09*filtProb(tt+t0, 0))/(predProb(tt+1+t0, 3));
         probE_t = (p19*filtProb(tt+t0, 1))/(predProb(tt+1+t0, 3));
         probI_t = (p29*filtProb(tt+t0, 2))/(predProb(tt+1+t0, 3));
@@ -241,7 +246,7 @@ function iFFBS(alpha_js,
       
       probs = {probSuscep_t, probE_t, probI_t, probDead_t};
       
-      if((tt==0L)&&(birthTime>=startTime)){
+      if((tt==0)&&(birthTime>=startTime)){
         probs = {1.0, 0.0, 0.0, 0.0};
       }
 
@@ -263,14 +268,14 @@ function iFFBS(alpha_js,
     # Rcout << "tt+t0: " << tt+t0 << std::endl;
     # Rcout << "corrector.row(tt+t0): " << corrector.row(tt+t0) << std::endl;
     
-    if(X(id-1, tt+t0) == 0L){
-      sumLogCorrector += log(corrector(tt+t0, 0L));
-    }else if(X(id-1, tt+t0) == 3L){
-      sumLogCorrector += log(corrector(tt+t0, 1L));
-    }else if(X(id-1, tt+t0) == 1L){
-      sumLogCorrector += log(corrector(tt+t0, 2L));
-    }else if(X(id-1, tt+t0) == 9L){
-      sumLogCorrector += log(corrector(tt+t0, 3L));
+    if(X(id-1, tt+t0) == 0){
+      sumLogCorrector += log(corrector(tt+t0, 0));
+    }else if(X(id-1, tt+t0) == 3){
+      sumLogCorrector += log(corrector(tt+t0, 1));
+    }else if(X(id-1, tt+t0) == 1){
+      sumLogCorrector += log(corrector(tt+t0, 2));
+    }else if(X(id-1, tt+t0) == 9){
+      sumLogCorrector += log(corrector(tt+t0, 3));
     }
     
   }
@@ -285,7 +290,7 @@ function iFFBS(alpha_js,
   
   # Updating mPerGroup, numInfecMat, logProbStoSgivenSorE, etc for the next individual (id or 0) -----
   
-  for(unsigned int tt=0; tt<(maxt-1L); tt++){  # idNext may be included after endTime
+  for(unsigned int tt=0; tt<(maxt-1); tt++){  # idNext may be included after endTime
   
     int g = SocGroup(id-1, tt);
     int g_idNext = SocGroup(idNext, tt);
@@ -296,7 +301,7 @@ function iFFBS(alpha_js,
     # Rcout << "g_idNext: " << g_idNext << std::endl;
     # Rcout << "a: " << a << std::endl;
               # is long type (L) needed here?
-    if((g==g_idNext)&&(g!=0L)){
+    if((g==g_idNext)&&(g!=0)){
       
       # # updating/correcting numInfecMat for the next individual
                 # This seems convoluted but avoids accessing numInfecMat twice.
@@ -304,127 +309,127 @@ function iFFBS(alpha_js,
                 # If it's 0, doesn't matter.
                 # Could drop all `if` statements in fact. unless these are much cheaper
                 # than addition and array access:
-                # numInfecMat(g_idNext-1L, tt) += X(id-1, tt) - X(idNext, tt);
+                # numInfecMat(g_idNext-1, tt) += X(id-1, tt) - X(idNext, tt);
                 # possible alternative, still avoiding array access:
                 # int infecToAdd = X(id-1,tt) - X(idNext,tt);
                 # if (infecToAdd != 0) {
-                # numInfecMat(g_idNext-1L, tt) += infecToAdd;
+                # numInfecMat(g_idNext-1, tt) += infecToAdd;
                 #}
 
-      int infecToAdd = 0L;
-      if(X(id-1,tt)==1L){
-        infecToAdd += 1L;
+      int infecToAdd = 0;
+      if(X(id-1,tt)==1){
+        infecToAdd += 1;
       }
-      if(X(idNext,tt)==1L){
-        infecToAdd -= 1L;
+      if(X(idNext,tt)==1){
+        infecToAdd -= 1;
       }
 
-      if((X(id-1,tt)==1L) || (X(idNext,tt)==1L)){
-        numInfecMat(g_idNext-1L, tt) += infecToAdd;
+      if((X(id-1,tt)==1) || (X(idNext,tt)==1)){
+        numInfecMat(g_idNext-1, tt) += infecToAdd;
       }
 
       # # updating/correcting mPerGroup for the next individual
                 # This eems okay. most Xs will be 0, so should be fast.
                 # Don't know if it's worth storing dead badgers in a speific
                 # array for this.
-      int mToAdd = 0L;
-      if((X(id-1,tt)==0L) || (X(id-1,tt)==1L)  || (X(id-1,tt)==3L)){
-        mToAdd += 1L;
+      int mToAdd = 0;
+      if((X(id-1,tt)==0) || (X(id-1,tt)==1)  || (X(id-1,tt)==3)){
+        mToAdd += 1;
       }
-      if((X(idNext,tt)==0L) || (X(idNext,tt)==1L)  || (X(idNext,tt)==3L)){
-        mToAdd -= 1L;
+      if((X(idNext,tt)==0) || (X(idNext,tt)==1)  || (X(idNext,tt)==3)){
+        mToAdd -= 1;
       }
       
-      if( ((X(id-1,tt)==0L) || (X(id-1,tt)==1L)  || (X(id-1,tt)==3L)) || 
-          ((X(idNext,tt)==0L) || (X(idNext,tt)==1L)  || (X(idNext,tt)==3L)) ){
-        mPerGroup(g_idNext-1L, tt) += mToAdd;
+      if( ((X(id-1,tt)==0) || (X(id-1,tt)==1)  || (X(id-1,tt)==3)) || 
+          ((X(idNext,tt)==0) || (X(idNext,tt)==1)  || (X(idNext,tt)==3)) ){
+        mPerGroup(g_idNext-1, tt) += mToAdd;
       }
             
       if(id<m){
         
-        double a = alpha_js[g_idNext-1L];
+        double a = alpha_js[g_idNext-1];
         
         int mgt;
         double inf_mgt;
-        mgt = mPerGroup(g_idNext-1L, tt);
+        mgt = mPerGroup(g_idNext-1, tt);
         
-        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)(mgt + 1.0)/K, q));
-        logProbStoSgivenSorE(g_idNext-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenSorE(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        inf_mgt = numInfecMat(g_idNext-1, tt)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenSorE(g_idNext-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenSorE(g_idNext-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
-        inf_mgt = (numInfecMat(g_idNext-1L, tt)+1L)/(pow((double)(mgt + 1.0)/K, q));
-        logProbStoSgivenI(g_idNext-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenI(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        inf_mgt = (numInfecMat(g_idNext-1, tt)+1)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenI(g_idNext-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenI(g_idNext-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
-        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)mgt/K, q));
-        logProbStoSgivenD(g_idNext-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenD(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        inf_mgt = numInfecMat(g_idNext-1, tt)/(pow((double)mgt/K, q));
+        logProbStoSgivenD(g_idNext-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenD(g_idNext-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
       }
 
       
     }else{
       
-      if(g!=0L){
-        if(X(id-1,tt)==1L){
-          numInfecMat(g-1, tt) += 1L;
+      if(g!=0){
+        if(X(id-1,tt)==1){
+          numInfecMat(g-1, tt) += 1;
         }
-        if( (X(id-1,tt)==0L) || (X(id-1,tt)==1L)  || (X(id-1,tt)==3L) ){
-          mPerGroup(g-1, tt) += 1L;
+        if( (X(id-1,tt)==0) || (X(id-1,tt)==1)  || (X(id-1,tt)==3) ){
+          mPerGroup(g-1, tt) += 1;
         }
       }
       
-      if((id<m)&&(g!=0L)){
+      if((id<m)&&(g!=0)){
         
-        double a = alpha_js[g-1L];
+        double a = alpha_js[g-1];
         
         int mgt;
         double inf_mgt;
         
-        mgt = mPerGroup(g-1L, tt); 
+        mgt = mPerGroup(g-1, tt); 
         
-        inf_mgt = numInfecMat(g-1L, tt)/(pow((double)mgt/K, q));
-        logProbStoSgivenSorE(g-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenSorE(g-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        inf_mgt = numInfecMat(g-1, tt)/(pow((double)mgt/K, q));
+        logProbStoSgivenSorE(g-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenSorE(g-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
-        # inf_mgt = numInfecMat(g-1L, tt)/(pow((double) mgt, q));
-        logProbStoSgivenI(g-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenI(g-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        # inf_mgt = numInfecMat(g-1, tt)/(pow((double) mgt, q));
+        logProbStoSgivenI(g-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenI(g-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
-        # inf_mgt = numInfecMat(g-1L, tt)/(pow((double) mgt, q));
-        logProbStoSgivenD(g-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenD(g-1L, tt) = Rf_log1mexp(a + b*inf_mgt);    
+        # inf_mgt = numInfecMat(g-1, tt)/(pow((double) mgt, q));
+        logProbStoSgivenD(g-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenD(g-1, tt) = Rf_log1mexp(a + b*inf_mgt);    
               
       }
             
-      if(g_idNext!=0L){
-        if(X(idNext,tt)==1L){
-          numInfecMat(g_idNext-1, tt) -= 1L;
+      if(g_idNext!=0){
+        if(X(idNext,tt)==1){
+          numInfecMat(g_idNext-1, tt) -= 1;
         }
-        if( (X(idNext,tt)==0L) || (X(idNext,tt)==1L)  || (X(idNext,tt)==3L) ){
-          mPerGroup(g_idNext-1, tt) -= 1L;
+        if( (X(idNext,tt)==0) || (X(idNext,tt)==1)  || (X(idNext,tt)==3) ){
+          mPerGroup(g_idNext-1, tt) -= 1;
         }
       }
 
-      if((id<m)&&(g_idNext!=0L)){
+      if((id<m)&&(g_idNext!=0)){
         
-        double a = alpha_js[g_idNext-1L];
+        double a = alpha_js[g_idNext-1];
         
         int mgt;
         double inf_mgt;
-        mgt = mPerGroup(g_idNext-1L, tt);
+        mgt = mPerGroup(g_idNext-1, tt);
         
-        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)(mgt + 1.0)/K, q));
-        logProbStoSgivenSorE(g_idNext-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenSorE(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        inf_mgt = numInfecMat(g_idNext-1, tt)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenSorE(g_idNext-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenSorE(g_idNext-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
-        inf_mgt = (numInfecMat(g_idNext-1L, tt)+1L)/(pow((double)(mgt + 1.0)/K, q));
-        logProbStoSgivenI(g_idNext-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenI(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        inf_mgt = (numInfecMat(g_idNext-1, tt)+1)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenI(g_idNext-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenI(g_idNext-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
-        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)mgt/K, q));
-        logProbStoSgivenD(g_idNext-1L, tt) = -a -b*inf_mgt;
-        logProbStoEgivenD(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        inf_mgt = numInfecMat(g_idNext-1, tt)/(pow((double)mgt/K, q));
+        logProbStoSgivenD(g_idNext-1, tt) = -a -b*inf_mgt;
+        logProbStoEgivenD(g_idNext-1, tt) = Rf_log1mexp(a + b*inf_mgt);
         
       }
       
@@ -443,13 +448,13 @@ function iFFBS(alpha_js,
     int g_1;
 
     # current individual (id) will be in logProbRest when updating idNext
-    for(unsigned int tt=0; tt<maxt-1L; tt++){
-    # for(unsigned int tt=0; tt<endTime-1L; tt++){
+    for(unsigned int tt=0; tt<maxt-1; tt++){
+    # for(unsigned int tt=0; tt<endTime-1; tt++){
       
       # update logProbRest(tt,_,id-1);
-      # if(X(id-1L, tt)==0L){
+      # if(X(id-1, tt)==0){
                 # So this is why we cant pre-calc transpobs?
-        iFFBScalcLogProbRest(id-1L, tt, logProbRest, X, SocGroup, 
+        iFFBScalcLogProbRest(id-1, tt, logProbRest, X, SocGroup, 
                              LogProbDyingMat, LogProbSurvMat, 
                              logProbStoSgivenSorE, logProbStoEgivenSorE, 
                              logProbStoSgivenI, logProbStoEgivenI, 
@@ -460,7 +465,7 @@ function iFFBS(alpha_js,
       # removing logProbRest(tt,s,idNext)
       # (idNext must not be included in logProbRest when updating idNext)
       for(int s=0; s<numStates; s++){
-        logTransProbRest(tt, s) += (logProbRest(tt,s,id-1L) - logProbRest(tt,s,idNext));
+        logTransProbRest(tt, s) += (logProbRest(tt,s,id-1) - logProbRest(tt,s,idNext));
         logProbRest(tt,s,idNext) = 0.0;
       }
       
@@ -475,20 +480,20 @@ function iFFBS(alpha_js,
       
       for(auto & jj : whichRequireUpdate(c + tt)){
       
-        if(X(jj, tt)==0L){
+        if(X(jj, tt)==0){
 
           for(int s=0; s<numStates; s++){
             logTransProbRest(tt, s) -= logProbRest(tt,s,jj);
           }
               
-          g_1 = SocGroup(jj, tt)-1L;
+          g_1 = SocGroup(jj, tt)-1;
           
-          if(X(jj, tt+1)==0L){
+          if(X(jj, tt+1)==0){
             logProbRest(tt,0,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenSorE(g_1, tt);
             logProbRest(tt,1,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenSorE(g_1, tt);
             logProbRest(tt,2,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenI(g_1, tt);
             logProbRest(tt,3,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenD(g_1, tt);
-          }else if(X(jj, tt+1)==3L){
+          }else if(X(jj, tt+1)==3){
             logProbRest(tt,0,jj) = LogProbSurvMat(jj, tt+1) + logProbStoEgivenSorE(g_1, tt);
             logProbRest(tt,1,jj) = LogProbSurvMat(jj, tt+1) + logProbStoEgivenSorE(g_1, tt);
             logProbRest(tt,2,jj) = LogProbSurvMat(jj, tt+1) + logProbStoEgivenI(g_1, tt);
@@ -513,14 +518,14 @@ function iFFBS(alpha_js,
 
 # Using this:
 # for(auto & jj : whichRequireUpdate(c + tt)){
-#   if(X(jj, tt)==0L){
+#   if(X(jj, tt)==0){
 # is equivalent to using the loop and if condition below
 # 
 # for(int jj=0; jj<m; jj++){
-# if(((jj!=id-1L)&&(jj!=idNext))&&
+# if(((jj!=id-1)&&(jj!=idNext))&&
 #    ((SocGroup(jj, tt)==SocGroup(id-1, tt))||
 #     (SocGroup(jj, tt)==SocGroup(idNext, tt)))&&
-# (X(jj, tt)==0L)){
+# (X(jj, tt)==0)){
 
 
 ############ 
