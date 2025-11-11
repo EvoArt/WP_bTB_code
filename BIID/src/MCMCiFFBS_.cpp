@@ -518,6 +518,7 @@ arma::mat MCMCiFFBS_(int N,
   // Rcout << "Sigma: " << Sigma << std::endl;
   
   // // calculate matrix of ages
+            // v confusing... + 0, -1, +1
   arma::imat ageMat = arma::zeros<arma::imat>(m, maxt);
   ageMat.fill(-10L);
   for(unsigned int i=0; i<m; i++){

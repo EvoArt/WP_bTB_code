@@ -1,8 +1,4 @@
-using OffsetArrays: Origin # to use 0-based indexing
-
-macro zero_based(x)
-    return :( Origin(0)($x) )
-end
+using LinearAlgebra, StatsFuns, StatsBase
 
 """
     MCMCiFFBS_(N, initParamValues, Xinit, TestMat, CaptHist, birthTimes, 
@@ -75,65 +71,56 @@ A matrix containing MCMC draws (N rows) from the posterior distribution of all p
   - 1: infectious
   - 9: dead
 """
-function MCMCiFFBS_(N::Int, 
-                    initParamValues::Vector{Float64},
-                    Xinit::Matrix{Int}, 
-                    TestMat::Matrix{Int}, 
-                    CaptHist::Matrix{Int}, 
-                    birthTimes::Vector{Int}, 
-                    startSamplingPeriod::Vector{Int},
-                    endSamplingPeriod::Vector{Int},
-                    nuTimes::Vector{Int},
-                    CaptEffort::Matrix{Int},
-                    capturesAfterMonit::Matrix{Int},
-                    numSeasons::Int, 
-                    seasonStart::Int, 
-                    maxt::Int, 
-                    hp_lambda::Vector{Float64},
-                    hp_beta::Vector{Float64},
-                    hp_q::Vector{Float64},
-                    hp_tau::Vector{Float64},
-                    hp_a2::Vector{Float64},
-                    hp_b2::Vector{Float64},
-                    hp_c1::Vector{Float64},
-                    hp_nu::Vector{Float64},
-                    hp_xi::Vector{Float64},
-                    hp_theta::Vector{Float64},
-                    hp_rho::Vector{Float64},
-                    hp_phi::Vector{Float64},
-                    hp_eta::Vector{Float64},
-                    k::Int,
-                    K::Float64,
-                    sd_xi_min::Float64,
-                    method::Int, 
-                    epsilon::Float64, 
-                    epsilonalphas::Float64, 
-                    epsilonbq::Float64, 
-                    epsilontau::Float64,
-                    epsilonc1::Float64, 
-                    epsilonsens::Float64,
-                    L::Int, 
-                    path::String, 
-                    blockSize::Int)
+function MCMCiFFBS_(N, 
+                    initParamValues,
+                    Xinit, 
+                    TestMat, 
+                    CaptHist, 
+                    birthTimes, 
+                    startSamplingPeriod,
+                    endSamplingPeriod,
+                    nuTimes,
+                    CaptEffort,
+                    capturesAfterMonit,
+                    numSeasons, 
+                    seasonStart, 
+                    maxt, 
+                    hp_lambda,
+                    hp_beta,
+                    hp_q,
+                    hp_tau,
+                    hp_a2,
+                    hp_b2,
+                    hp_c1,
+                    hp_nu,
+                    hp_xi,
+                    hp_theta,
+                    hp_rho,
+                    hp_phi,
+                    hp_eta,
+                    k,
+                    K,
+                    sd_xi_min,
+                    method, 
+                    epsilon, 
+                    epsilonalphas, 
+                    epsilonbq, 
+                    epsilontau,
+                    epsilonc1, 
+                    epsilonsens,
+                    L, 
+                    path, 
+                    blockSize)
     
-    # Apply 0-based indexing to all arrays
-    Xinit = @zero_based Xinit
-    TestMat = @zero_based TestMat
-    CaptHist = @zero_based CaptHist
-    birthTimes = @zero_based birthTimes
-    startSamplingPeriod = @zero_based startSamplingPeriod
-    endSamplingPeriod = @zero_based endSamplingPeriod
-    nuTimes = @zero_based nuTimes
-    CaptEffort = @zero_based CaptEffort
-    capturesAfterMonit = @zero_based capturesAfterMonit
+    m = size(CaptHist, 1) #same
+    # No conversion needed - using 1-based indexing throughout
     
     if !((method != 1) | (method != 2))
         println("Please use either method=1 ('HMC') or method=2 ('RWMH').")
     end
     
-    m = size(CaptHist, 1)
-    numTests = size(TestMat, 2) - 3
-    G = maximum(TestMat[:, 3])
+    numTests = size(TestMat, 2) - 3 #same
+    G = Int64(maximum(TestMat[:, 3][.!isnan.(TestMat[:, 3])])) #same
     
     if size(Xinit, 1) != m
         error("Xinit and CaptHist must include the same number of individuals.")
@@ -146,6 +133,7 @@ function MCMCiFFBS_(N::Int,
     end
     
     numNuTimes = length(nuTimes)
+    # Debug prints removed
     nParsNotGibbs = G + 4 + 3 + 2*numNuTimes + 1 
     # G alphas, lambda, beta, q, tau, survival rates, init probs, Brock changepoint
     
@@ -202,34 +190,34 @@ function MCMCiFFBS_(N::Int,
         c1Init = initParamValues[8]
         
         for i_nu in 1:numNuTimes
-            nuEInit[i_nu] = initParamValues[8 + 1 + i_nu]
+            nuEInit[i_nu] = initParamValues[7 + 1 + i_nu]
         end
         for i_nu in 1:numNuTimes
-            nuIInit[i_nu] = initParamValues[8 + 1 + numNuTimes + i_nu]
+            nuIInit[i_nu] = initParamValues[7 + 1 + numNuTimes + i_nu]
         end
         
-        xiInit = Int(initParamValues[8 + 1 + 2*numNuTimes])
+        xiInit = Int(initParamValues[7 + 1 + 2*numNuTimes])
         
         if xiInit < 1 || xiInit > maxt-1
             error("Initial value for the Brock changepoint is outside the study period.")
         end
         
         for iTest in 1:numTests
-            thetasInit[iTest] = initParamValues[nParsNotGibbs-G+2+iTest]
+            thetasInit[iTest] = initParamValues[nParsNotGibbs-G+1+iTest]
         end
         for iTest in 1:numTests
-            rhosInit[iTest] = initParamValues[nParsNotGibbs-G+2+numTests+iTest]
+            rhosInit[iTest] = initParamValues[nParsNotGibbs-G+1+numTests+iTest]
         end
         for iTest in 1:numTests
-            phisInit[iTest] = initParamValues[nParsNotGibbs-G+2+2*numTests+iTest]
+            phisInit[iTest] = initParamValues[nParsNotGibbs-G+1+2*numTests+iTest]
         end
         for s in 1:numSeasons
-            etasInit[s] = initParamValues[nParsNotGibbs-G+2+3*numTests+s]
+            etasInit[s] = initParamValues[nParsNotGibbs-G+1+3*numTests+s]
         end
         
     else
         println("Initial parameter values generated from the prior: ")
-        
+        # need to check parametisation
         lambdaInit = rand(Gamma(hp_lambda[1], 1/hp_lambda[2]))
         alphaStarInit = rand(Gamma(1.0, 1.0))
         betaInit = rand(Gamma(hp_beta[1], 1/hp_beta[2]))
@@ -271,25 +259,8 @@ function MCMCiFFBS_(N::Int,
         end
     end
     
-    println("alphaStar = $alphaStarInit")
-    println("lambda = $lambdaInit")
-    println("alpha = $(alphaStarInit*lambdaInit)")
-    println("beta = $betaInit")
-    println("q = $qInit")
-    println("tau = $tauInit")
-    println("a2 = $a2Init")
-    println("b2 = $b2Init")
-    println("c1 = $c1Init")
-    println("nuEs = $nuEInit")
-    println("nuIs = $nuIInit")
-    println("xi = $xiInit")
-    println("thetas = $thetasInit")
-    println("rhos = $rhosInit")
-    println("phis = $phisInit")
-    println("etas = $etasInit")
-    
-    # Parameter estimates
-    nPars = nParsNotGibbs + 3*numTests + numSeasons
+    # Parameter estimates (debugging removed)
+    nPars = Int64(nParsNotGibbs + 3*numTests + numSeasons)
     out = zeros(Float64, N, nPars)
     
     # Full log-posterior
@@ -307,10 +278,9 @@ function MCMCiFFBS_(N::Int,
     nInfTested = zeros(Int, maxt, blockSize, numTests)
     
     # Now saving these per social group in a field of length G
-    zerosCube = zeros(Int, maxt, blockSize, numTests)
-    nExpTestedPerGroup = [zerosCube for _ in 1:G]
-    nInfTestedPerGroup = [zerosCube for _ in 1:G]
-    nSusTestedPerGroup = [zerosCube for _ in 1:G]
+    nExpTestedPerGroup = [zeros(Int, maxt, blockSize, numTests) for _ in 1:G]
+    nInfTestedPerGroup = [zeros(Int, maxt, blockSize, numTests) for _ in 1:G]
+    nSusTestedPerGroup = [zeros(Int, maxt, blockSize, numTests) for _ in 1:G]
     
     # Number of exposed, infectives and total number of individuals per social group at each time
     nSusByGroup = zeros(Int, G, maxt, blockSize)
@@ -343,12 +313,12 @@ function MCMCiFFBS_(N::Int,
         alpha_js[g] = alphaStarInit*lambdaInit
     end
     pars[G+1] = log(lambdaInit)
-    pars[G+2] = log(betaInit)
-    pars[G+3] = logit(qInit)
-    pars[G+4] = log(tauInit)
-    pars[G+5] = log(a2Init)
-    pars[G+6] = log(b2Init)
-    pars[G+7] = log(c1Init)
+    pars[G+1+1] = log(betaInit)
+    pars[G+2+1] = logit(qInit)
+    pars[G+3+1] = log(tauInit)
+    pars[G+4+1] = log(a2Init)
+    pars[G+5+1] = log(b2Init)
+    pars[G+6+1] = log(c1Init)
     
     lambda = lambdaInit
     beta = betaInit
@@ -360,16 +330,16 @@ function MCMCiFFBS_(N::Int,
     b2 = b2Init
     c1 = c1Init
     
-    nuEs = nuEInit
-    nuIs = nuIInit
+    nuEs = copy(nuEInit)
+    nuIs = copy(nuIInit)
     
-    xi = xiInit
+    xi = copy(xiInit)
     
-    thetas = thetasInit
-    rhos = rhosInit
+    thetas = copy(thetasInit)
+    rhos = copy(rhosInit)
     
-    phis = phisInit
-    etas = etasInit
+    phis = copy(phisInit)
+    etas = copy(etasInit)
     
     seasonVec = MakeSeasonVec_(numSeasons, seasonStart, maxt)
     
@@ -377,13 +347,13 @@ function MCMCiFFBS_(N::Int,
     
     # Check last time each individual was captured
     lastCaptureTimes = zeros(Int, m)
-    for i in 0:m-1
-        capt_hist_i = CaptHist[i+1, :]
-        whichCapt = findall(x -> x == 1, capt_hist_i) .- 1
+    for i in 1:m
+        capt_hist_i = CaptHist[i, :]
+        whichCapt = findall(x -> x == 1, capt_hist_i)
         if length(whichCapt) > 0
-            lastCaptureTimes[i+1] = maximum(whichCapt) + 1
+            lastCaptureTimes[i] = maximum(whichCapt)
         else
-            lastCaptureTimes[i+1] = birthTimes[i+1] + 1
+            lastCaptureTimes[i] = birthTimes[i] #+ 1
         end
     end
     
@@ -398,25 +368,27 @@ function MCMCiFFBS_(N::Int,
     thetas_rhos = zeros(Float64, 2*numTests)
     
     # Calculate matrix of ages
+    # This section of c++ was v confusing due to 0-based indexing arithmatic.
+    # Need to double check I've translated properly.
     ageMat = fill(-10, m, maxt)
-    for i in 0:m-1
-        mint_i = max(1, birthTimes[i+1] + 1)
-        for tt in mint_i-1:maxt-1
-            ageMat[i+1, tt+1] = tt + 2 - (birthTimes[i+1] + 1)
+    for i in 1:m
+        mint_i = max(1, birthTimes[i])# + 1)
+        for tt in mint_i:maxt
+            ageMat[i, tt] = tt - birthTimes[i] # think this is right
         end
     end
     
     SocGroup = LocateIndiv(TestMat, birthTimes) # (m x maxt) matrix
     
     CaptHistUsed = copy(CaptHist)
-    for ii in 0:m-1
-        for tt in 0:maxt-1
-            g = SocGroup[ii+1, tt+1]
+    for ii in 1:m
+        for tt in 1:maxt
+            g = SocGroup[ii, tt]
             
-            if g == 0 || g == -1
-                CaptHistUsed[ii+1, tt+1] = 0
+            if (g == 0) || (g == -1)
+                CaptHistUsed[ii, tt] = 0
             else
-                CaptHistUsed[ii+1, tt+1] = CaptHistUsed[ii+1, tt+1] * CaptEffort[g, tt+1]
+                CaptHistUsed[ii, tt] = CaptHistUsed[ii, tt] * CaptEffort[g, tt]
             end
         end
     end
@@ -427,12 +399,12 @@ function MCMCiFFBS_(N::Int,
     # This is for the coming individual to be updated, i.e. the 1st individual here.
     # Inside the function iFFBS, numInfecMat will be updated.
     numInfecMat = zeros(Int, G, maxt-1)
-    for tt in 0:maxt-2
-        for ii in 1:m-1 # without 1st indiv
-            if X[ii+1, tt+1] == 1
-                g_i_tt = SocGroup[ii+1, tt+1]
+    for tt in 1:maxt-1
+        for ii in 2:m # without 1st indiv
+            if X[ii, tt] == 1
+                g_i_tt = SocGroup[ii, tt]
                 if g_i_tt != 0
-                    numInfecMat[g_i_tt, tt+1] += 1
+                    numInfecMat[g_i_tt, tt] += 1
                 end
             end
         end
@@ -443,22 +415,24 @@ function MCMCiFFBS_(N::Int,
     # that is being updated)
     # This is for the coming individual to be updated, i.e. the 1st individual here.
     mPerGroup = zeros(Int, G, maxt)
-    for tt in 0:maxt-1
-        for ii in 1:m-1 # without 1st indiv
-            if X[ii+1, tt+1] == 0 || X[ii+1, tt+1] == 1 || X[ii+1, tt+1] == 3
-                g_i_tt = SocGroup[ii+1, tt+1]
+    for tt in 1:maxt
+        for ii in 2:m # without 1st indiv
+            if (X[ii, tt] == 0) || (X[ii, tt] == 1) || (X[ii, tt] == 3)
+                g_i_tt = SocGroup[ii, tt]
                 if g_i_tt != 0
-                    mPerGroup[g_i_tt, tt+1] += 1
+                    mPerGroup[g_i_tt, tt] += 1
                 end
             end
         end
     end
+    println(hcat(mPerGroup[27,:],SocGroup[1, :]))
+    println(mPerGroup[27,:])
     
-    TestField = TestMatAsField(TestMat, m)
+    TestField = TestMatAsField_CORRECTED(TestMat, m)
     TestFieldProposal = copy(TestField)
     TestTimes = TestTimesField(TestMat, m)
     
-    idVecAll = 0:m-1
+    idVecAll = 1:m
     corrector = zeros(Float64, maxt, 4)
     predProb = zeros(Float64, maxt, 4)
     filtProb = zeros(Float64, maxt, 4)
@@ -471,18 +445,18 @@ function MCMCiFFBS_(N::Int,
     # of individual jj (that is, probs to be used when updating jj+1)
     whichRequireUpdate = Vector{Vector{Int}}(undef, (m-1)*(maxt-1))
     count = 0
-    for i in 0:m-2
+    for i in 1:m-1
         id = i
         idNext = i+1
         
-        for tt in 0:maxt-2
+        for tt in 1:maxt-1
             idx = Int[]
-            for jj in 1:m-1
-                if ((jj != id+1) && (jj != idNext+1)) &&
-                   (SocGroup[jj, tt+1] != 0) &&
-                   (SocGroup[jj, tt+1] == SocGroup[id+1, tt+1] ||
-                    SocGroup[jj, tt+1] == SocGroup[idNext+1, tt+1])
-                    push!(idx, jj-1)
+            for jj in 2:m
+                if ((jj != id) && (jj != idNext)) &&
+                   (SocGroup[jj, tt] != 0) &&
+                   (SocGroup[jj, tt] == SocGroup[id, tt] ||
+                    SocGroup[jj, tt] == SocGroup[idNext, tt])
+                    push!(idx, jj)
                 end
             end
             count += 1
@@ -493,9 +467,9 @@ function MCMCiFFBS_(N::Int,
     iterSub = 0
     
     # Start MCMC iterations -------------------------------------------
-    for iter in 0:N-1
+    for iter in 1:N
         
-        if iter > 0 && (iter+1) % 1000 == 0
+        if iter > 0 && (iter+1) % 10 == 0
             println("iter: $(iter+1) out of N=$N")
         end
         
@@ -520,19 +494,19 @@ function MCMCiFFBS_(N::Int,
         LogProbDyingMat = zeros(Float64, m, maxt)
         LogProbSurvMat = zeros(Float64, m, maxt)
         
-        for i in 0:m-1
-            for tt in 0:maxt-1
-                if ageMat[i+1, tt+1] > 0
-                    if tt+1 > lastCaptureTimes[i+1]
-                        age_i_tt = Float64(ageMat[i+1, tt+1])
+        for i in 1:m
+            for tt in 1:maxt
+                if ageMat[i, tt] > 0
+                    if tt > lastCaptureTimes[i]
+                        age_i_tt = Float64(ageMat[i, tt])
                         condProbDeath = TrProbDeath_(age_i_tt, a2, b2, c1, false)
-                        probDyingMat[i+1, tt+1] = condProbDeath
-                        LogProbDyingMat[i+1, tt+1] = log(condProbDeath)
-                        LogProbSurvMat[i+1, tt+1] = TrProbSurvive_(age_i_tt, a2, b2, c1, true)
+                        probDyingMat[i, tt] = condProbDeath
+                        LogProbDyingMat[i, tt] = log(condProbDeath)
+                        LogProbSurvMat[i, tt] = TrProbSurvive_(age_i_tt, a2, b2, c1, true)
                     else
-                        probDyingMat[i+1, tt+1] = 0.0
-                        LogProbDyingMat[i+1, tt+1] = log(0.0)
-                        LogProbSurvMat[i+1, tt+1] = log(1.0)
+                        probDyingMat[i, tt] = 0.0
+                        LogProbDyingMat[i, tt] = log(0.0)
+                        LogProbSurvMat[i, tt] = log(1.0)
                     end
                 end
             end
@@ -549,51 +523,53 @@ function MCMCiFFBS_(N::Int,
         logProbStoSgivenD = zeros(Float64, G, maxt-1)
         logProbStoEgivenD = zeros(Float64, G, maxt-1)
         
-        for tt in 0:maxt-2
+        for tt in 1:maxt-1
             for g in 1:G
-                mgt = mPerGroup[g, tt+1] # without the 1st individual
+                mgt = mPerGroup[g, tt] # without the 1st individual
                 
-                if SocGroup[1, tt+1] == g
+                if SocGroup[1, tt] == g
                     # if 1st individual is alive and S or E
-                    inf_mgt = numInfecMat[g, tt+1] / ((Float64(mgt+1.0)/K)^q)
-                    logProbStoSgivenSorE[g, tt+1] = -alpha_js[g] - beta*inf_mgt
-                    logProbStoEgivenSorE[g, tt+1] = log1mexp(alpha_js[g] + beta*inf_mgt)
+                    inf_mgt = numInfecMat[g, tt] / ((Float64(mgt+1.0)/K)^q)
+                    logProbStoSgivenSorE[g, tt] = -alpha_js[g] - beta*inf_mgt
+                    logProbStoEgivenSorE[g, tt] = log1mexp(alpha_js[g] + beta*inf_mgt)
                     
                     # if 1st individual is alive and I
-                    inf_mgt = (numInfecMat[g, tt+1] + 1.0) / ((Float64(mgt+1.0)/K)^q)
-                    logProbStoSgivenI[g, tt+1] = -alpha_js[g] - beta*inf_mgt
-                    logProbStoEgivenI[g, tt+1] = log1mexp(alpha_js[g] + beta*inf_mgt)
+                    inf_mgt = (numInfecMat[g, tt] + 1.0) / ((Float64(mgt+1.0)/K)^q)
+                    logProbStoSgivenI[g, tt] = -alpha_js[g] - beta*inf_mgt
+                    logProbStoEgivenI[g, tt] = log1mexp(alpha_js[g] + beta*inf_mgt)
                     
                     # if 1st individual is dead
-                    inf_mgt = numInfecMat[g, tt+1] / ((Float64(mgt)/K)^q)
-                    logProbStoSgivenD[g, tt+1] = -alpha_js[g] - beta*inf_mgt
-                    logProbStoEgivenD[g, tt+1] = log1mexp(alpha_js[g] + beta*inf_mgt)
-                    
+                    inf_mgt = numInfecMat[g, tt] / ((Float64(mgt)/K)^q)
+                    logProbStoSgivenD[g, tt] = -alpha_js[g] - beta*inf_mgt
+                    logProbStoEgivenD[g, tt] = log1mexp(alpha_js[g] + beta*inf_mgt)
                 else
                     # if 1st individual is alive and S or E
-                    inf_mgt = numInfecMat[g, tt+1] / ((Float64(mgt)/K)^q)
+                    inf_mgt = numInfecMat[g, tt] / ((Float64(mgt)/K)^q)
                     FOI = alpha_js[g] + beta*inf_mgt
                     log1mexpFOI = log1mexp(FOI)
                     
-                    logProbStoSgivenSorE[g, tt+1] = -FOI
-                    logProbStoEgivenSorE[g, tt+1] = log1mexpFOI
+                    logProbStoSgivenSorE[g, tt] = -FOI
+                    logProbStoEgivenSorE[g, tt] = log1mexpFOI
                     
                     # if 1st individual is alive and I
-                    logProbStoSgivenI[g, tt+1] = -FOI
-                    logProbStoEgivenI[g, tt+1] = log1mexpFOI
+                    logProbStoSgivenI[g, tt] = -FOI
+                    logProbStoEgivenI[g, tt] = log1mexpFOI
                     
                     # if 1st individual is dead
-                    logProbStoSgivenD[g, tt+1] = -FOI
-                    logProbStoEgivenD[g, tt+1] = log1mexpFOI
+                    logProbStoSgivenD[g, tt] = -FOI
+                    logProbStoEgivenD[g, tt] = log1mexpFOI
+                #isnan(logProbStoEgivenSorE[g, tt]) ? println([g, tt, alpha_js[g], beta, numInfecMat[g, tt],m, mgt, q, K]) : nothing
+
                 end
+                #isnan(logProbStoEgivenSorE[g, tt]) ? println([g, tt, alpha_js[g], beta, numInfecMat[g, tt],m, mgt, q, K]) : nothing
             end
         end
         
         logProbRest = zeros(Float64, maxt-1, 4, m)
-        for jj in 1:m-1
-            for tt in 0:maxt-2
-                # update logProbRest(tt+1,_,jj+1) except 1st individual
-                if X[jj+1, tt+1] == 0 || X[jj+1, tt+1] == 1 || X[jj+1, tt+1] == 3
+        for jj in 2:m
+            for tt in 1:maxt-1
+                # update logProbRest(tt,_,jj) except 1st individual
+                if X[jj, tt] == 0 || X[jj, tt] == 1 || X[jj, tt] == 3
                     iFFBScalcLogProbRest(jj, tt, logProbRest, X, SocGroup, 
                                          LogProbDyingMat, LogProbSurvMat, 
                                          logProbStoSgivenSorE, logProbStoEgivenSorE, 
@@ -605,11 +581,11 @@ function MCMCiFFBS_(N::Int,
         end
         
         logTransProbRest = zeros(Float64, maxt-1, 4)
-        for jj in 1:m-1
-            logTransProbRest += logProbRest[:, :, jj+1]
+        for jj in 2:m
+            logTransProbRest += logProbRest[:, :, jj]
         end
         
-        for jj in 0:m-1
+        for jj in 1:m
             # updating X(jj, _)
             iFFBS_(alpha_js, beta, q, tau, k, K,
                    probDyingMat,
@@ -624,13 +600,13 @@ function MCMCiFFBS_(N::Int,
                    phis,
                    etas, 
                    jj, 
-                   birthTimes[jj+1],
-                   startSamplingPeriod[jj+1],
-                   endSamplingPeriod[jj+1],
+                   birthTimes[jj],
+                   startSamplingPeriod[jj],
+                   endSamplingPeriod[jj],
                    X,
                    seasonVec,
-                   TestField[jj+1],
-                   TestTimes[jj+1],
+                   TestField[jj],
+                   TestTimes[jj],
                    CaptHist,
                    corrector,
                    predProb,
@@ -649,12 +625,12 @@ function MCMCiFFBS_(N::Int,
         end
         
         lastObsAliveTimes = zeros(Int, m)
-        for jj in 0:m-1
-            which_deadTimes = findall(x -> x == 9, X[jj+1, :])
+        for jj in 1:m
+            which_deadTimes = findall(x -> x == 9, X[jj, :])
             if length(which_deadTimes) > 0
-                lastObsAliveTimes[jj+1] = minimum(which_deadTimes)
+                lastObsAliveTimes[jj] = minimum(which_deadTimes)
             else
-                lastObsAliveTimes[jj+1] = endSamplingPeriod[jj+1]
+                lastObsAliveTimes[jj] = endSamplingPeriod[jj]
             end
         end
         
@@ -662,24 +638,24 @@ function MCMCiFFBS_(N::Int,
         # (that is, the vector updated at the iFFBS for the m-th individual).
         # Thus, we need to take into account the 1st individual
         totalNumInfec = copy(numInfecMat)
-        for tt in 0:maxt-2
-            if X[1, tt+1] == 1
-                g = SocGroup[1, tt+1]
-                totalNumInfec[g, tt+1] += 1
+        for tt in 1:maxt-1
+            if X[1, tt] == 1
+                g = SocGroup[1, tt]
+                totalNumInfec[g, tt] += 1
             end
         end
         # similarly for totalmPerGroup:
         totalmPerGroup = copy(mPerGroup)
-        for tt in 0:maxt-1
-            if X[1, tt+1] == 0 || X[1, tt+1] == 1 || X[1, tt+1] == 3
-                g = SocGroup[1, tt+1]
-                totalmPerGroup[g, tt+1] += 1
+        for tt in 1:maxt
+            if X[1, tt] == 0 || X[1, tt] == 1 || X[1, tt] == 3
+                g = SocGroup[1, tt]
+                totalmPerGroup[g, tt] += 1
             end
         end
         
         # Updating (a, b, tau) and Gompertz parameters using HMC or RWMH
         if method == 1
-            pars = HMC_2(pars, G, X, totalNumInfec, SocGroup, totalmPerGroup,
+            pars = HMC_2_CORRECTED(pars, G, X, totalNumInfec, SocGroup, totalmPerGroup,
                         birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit,
                         ageMat, epsilon, epsilonalphas, epsilonbq, epsilontau, epsilonc1, nParsBlock1, L, 
                         hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
@@ -689,14 +665,14 @@ function MCMCiFFBS_(N::Int,
                 ir0 = floor(iter * 0.1)
                 histLogFirstPars = zeros(Float64, iter-ir0, nParsBlock1) 
                 
-                for ir in 0:iter-ir0-1
+                for ir in 1:iter-ir0
                     for ic in 1:nParsBlock1
                         if ic <= G
-                            histLogFirstPars[ir+1, ic] = log(out[ir+ir0+1, ic] / out[ir+ir0+1, G+1])
+                            histLogFirstPars[ir, ic] = log(out[ir+ir0, ic] / out[ir+ir0, G+1])
                         elseif ic == G+3
-                            histLogFirstPars[ir+1, ic] = logit(out[ir+ir0+1, ic])
+                            histLogFirstPars[ir, ic] = logit(out[ir+ir0, ic])
                         else
-                            histLogFirstPars[ir+1, ic] = log(out[ir+ir0+1, ic])
+                            histLogFirstPars[ir, ic] = log(out[ir+ir0, ic])
                         end
                     end
                 end
@@ -720,17 +696,17 @@ function MCMCiFFBS_(N::Int,
         
         startTime = 0
         i_nu = 0
-        for i in 0:m-1
-            startTime = startSamplingPeriod[i+1]
+        for i in 1:m
+            startTime = startSamplingPeriod[i]
             
-            if birthTimes[i+1] < startTime  # born before monitoring started
+            if birthTimes[i] < startTime  # born before monitoring started
                 i_nu = findfirst(x -> x == startTime, nuTimes)
                 
-                if X[i+1, startTime] == 0
+                if X[i, startTime] == 0
                     numS_atnuTimes[i_nu] += 1
-                elseif X[i+1, startTime] == 3
+                elseif X[i, startTime] == 3
                     numE_atnuTimes[i_nu] += 1
-                elseif X[i+1, startTime] == 1
+                elseif X[i, startTime] == 1
                     numI_atnuTimes[i_nu] += 1
                 end
             end
@@ -760,10 +736,10 @@ function MCMCiFFBS_(N::Int,
             if iter > 0 && (iter+1) % 100 == 0
                 ir0 = floor(iter * 0.1)
                 histThetasRhos = zeros(Float64, iter-ir0, nParsThetasRhos)
-                for ir in 0:iter-ir0-1
+                for ir in 1:iter-ir0
                     for ic in 1:nParsThetasRhos
-                        natScaleValue = out[ir+ir0+1, nParsNotGibbs+ic]
-                        histThetasRhos[ir+1, ic] = log(natScaleValue / (1-natScaleValue))
+                        natScaleValue = out[ir+ir0, nParsNotGibbs+ic]
+                        histThetasRhos[ir, ic] = log(natScaleValue / (1-natScaleValue))
                     end
                 end
                 postVar = cov(histThetasRhos)
@@ -782,7 +758,7 @@ function MCMCiFFBS_(N::Int,
         end
         
         # Updating test specificities using Gibbs Sampling
-        sensSpecMatrix = CheckSensSpec_(numTests, TestField, TestTimes, X)
+        sensSpecMatrix = CheckSensSpec__CORRECTED(numTests, TestField, TestTimes, X)
         
         for iTest in 1:numTests
             phis[iTest] = rand(Beta(sensSpecMatrix[3, iTest] + hp_phi[1],
@@ -836,19 +812,19 @@ function MCMCiFFBS_(N::Int,
         # Updating eta using Gibbs Sampling considering irregular trapping
         for s in 1:numSeasons
             sumCaptHist_s = 0
-            for tt in 0:maxt-1
-                if seasonVec[tt+1] == s
-                    sumCaptHist_s += sum(CaptHistUsed[:, tt+1])
+            for tt in 1:maxt
+                if seasonVec[tt] == s
+                    sumCaptHist_s += sum(CaptHistUsed[:, tt])
                 end
             end
             
             g = 0
             sumXAlive_s = 0
-            for ir in 0:size(X, 1)-1
-                for ic in 0:size(X, 2)-1
-                    if seasonVec[ic+1] == s
-                        g = SocGroup[ir+1, ic+1]
-                        if (X[ir+1, ic+1] == 0 || X[ir+1, ic+1] == 3 || X[ir+1, ic+1] == 1) && CaptEffort[g, ic+1] == 1
+            for ir in 1:size(X, 1)
+                for ic in 1:size(X, 2)
+                    if seasonVec[ic] == s
+                        g = SocGroup[ir, ic]
+                        if (X[ir, ic] == 0 || X[ir, ic] == 3 || X[ir, ic] == 1) && CaptEffort[g, ic] == 1
                             sumXAlive_s += 1
                         end
                     end
@@ -980,46 +956,46 @@ function MCMCiFFBS_(N::Int,
         
         # Saving nInf, nSus, nTot, nSusTested, nExpTested, nInfTested
         g_i_tt = 0
-        for tt in 0:maxt-1
-            nSus[tt+1, iter+1] = count(x -> x == 0, X[:, tt+1])
-            nExp[tt+1, iter+1] = count(x -> x == 3, X[:, tt+1])
-            nInf[tt+1, iter+1] = count(x -> x == 1, X[:, tt+1])
+        for tt in 1:maxt
+            nSus[tt, iter+1] = count(x -> x == 0, X[:, tt])
+            nExp[tt, iter+1] = count(x -> x == 3, X[:, tt])
+            nInf[tt, iter+1] = count(x -> x == 1, X[:, tt])
             
-            for i in 0:m-1
-                g_i_tt = SocGroup[i+1, tt+1]
-                if X[i+1, tt+1] == 0
-                    nSusByGroup[g_i_tt, tt+1, iterSub+1] += 1
+            for i in 1:m
+                g_i_tt = SocGroup[i, tt]
+                if X[i, tt] == 0
+                    nSusByGroup[g_i_tt, tt, iterSub+1] += 1
                 end
-                if X[i+1, tt+1] == 3
-                    nExpByGroup[g_i_tt, tt+1, iterSub+1] += 1
+                if X[i, tt] == 3
+                    nExpByGroup[g_i_tt, tt, iterSub+1] += 1
                 end
-                if X[i+1, tt+1] == 1
-                    nInfByGroup[g_i_tt, tt+1, iterSub+1] += 1
+                if X[i, tt] == 1
+                    nInfByGroup[g_i_tt, tt, iterSub+1] += 1
                 end
             end
         end
         
         tt = 0
         tested = false
-        for i in 0:m-1
-            Tests_i = TestField[i+1]
-            testTimes_i = TestTimes[i+1] .- 1
+        for i in 1:m
+            Tests_i = TestField[i]
+            testTimes_i = TestTimes[i]
             if length(testTimes_i) > 0
                 for tt_i in 1:length(testTimes_i)
                     tt = testTimes_i[tt_i]
                     for iTest in 1:numTests
                         tested = (Tests_i[tt_i, iTest] == 0 || Tests_i[tt_i, iTest] == 1)
                         if tested
-                            g_i_tt = SocGroup[i+1, tt+1]
-                            if X[i+1, tt+1] == 1
-                                nInfTested[tt+1, iterSub+1, iTest] += 1
-                                nInfTestedPerGroup[g_i_tt][tt+1, iterSub+1, iTest] += 1
-                            elseif X[i+1, tt+1] == 3
-                                nExpTested[tt+1, iterSub+1, iTest] += 1
-                                nExpTestedPerGroup[g_i_tt][tt+1, iterSub+1, iTest] += 1
-                            elseif X[i+1, tt+1] == 0
-                                nSusTested[tt+1, iterSub+1, iTest] += 1
-                                nSusTestedPerGroup[g_i_tt][tt+1, iterSub+1, iTest] += 1
+                            g_i_tt = SocGroup[i, tt]
+                            if X[i, tt] == 1
+                                nInfTested[tt, iterSub+1, iTest] += 1
+                                nInfTestedPerGroup[g_i_tt][tt, iterSub+1, iTest] += 1
+                            elseif X[i, tt] == 3
+                                nExpTested[tt, iterSub+1, iTest] += 1
+                                nExpTestedPerGroup[g_i_tt][tt, iterSub+1, iTest] += 1
+                            elseif X[i, tt] == 0
+                                nSusTested[tt, iterSub+1, iTest] += 1
+                                nSusTestedPerGroup[g_i_tt][tt, iterSub+1, iTest] += 1
                             end
                         end
                     end
@@ -1031,33 +1007,33 @@ function MCMCiFFBS_(N::Int,
         
         g = 0
         totalFOI = 0.0
-        for i in 0:m-1
-            if any(x -> x == 3, X[i+1, :])
-                tt = findfirst(x -> x == 3, X[i+1, :]) - 1
-                infTimes[i+1, iterSub+1] = tt + 1
+        for i in 1:m
+            if any(x -> x == 3, X[i, :])
+                tt = findfirst(x -> x == 3, X[i, :])
+                infTimes[i, iterSub+1] = tt
                 
-                if tt > 0 # at time interval (t-1, t), we do not know infection rates
-                    g = SocGroup[i+1, tt+1] - 1
-                    totalFOI = alpha_js[g+1] + beta * totalNumInfec[g+1, tt] / ((Float64(totalmPerGroup[g+1, tt])/K)^q)
-                    AcontribIndivGroupTime[i+1, g+1, tt+1] = alpha_js[g+1] / totalFOI
+                if tt > 1 # at time interval (t-1, t), we do not know infection rates
+                    g = SocGroup[i, tt]
+                    totalFOI = alpha_js[g] + beta * totalNumInfec[g, tt] / ((Float64(totalmPerGroup[g, tt])/K)^q)
+                    AcontribIndivGroupTime[i, g, tt] = alpha_js[g] / totalFOI
                 end
             end
-            if any(x -> x == 1, X[i+1, :])
-                infectivityTimes[i+1, iterSub+1] = findfirst(x -> x == 1, X[i+1, :])
+            if any(x -> x == 1, X[i, :])
+                infectivityTimes[i, iterSub+1] = findfirst(x -> x == 1, X[i, :])
             end
-            if any(x -> x == 9, X[i+1, :])
-                deathTimes[i+1, iterSub+1] = findfirst(x -> x == 9, X[i+1, :])
+            if any(x -> x == 9, X[i, :])
+                deathTimes[i, iterSub+1] = findfirst(x -> x == 9, X[i, :])
             end
         end
         
         # Calculate Acontrib contributions
         AcontribPop_sum = 0.0
         AcontribPop_count = 0.0
-        for i in 0:m-1
+        for i in 1:m
             for g in 1:G
-                for tt in 0:maxt-1
-                    if AcontribIndivGroupTime[i+1, g, tt+1] > 0.0
-                        AcontribPop_sum += AcontribIndivGroupTime[i+1, g, tt+1]
+                for tt in 1:maxt
+                    if AcontribIndivGroupTime[i, g, tt] > 0.0
+                        AcontribPop_sum += AcontribIndivGroupTime[i, g, tt]
                         AcontribPop_count += 1.0
                     end
                 end
@@ -1065,27 +1041,27 @@ function MCMCiFFBS_(N::Int,
         end
         AcontribPop[iterSub+1] = AcontribPop_sum / AcontribPop_count
         
-        for tt in 0:maxt-1
+        for tt in 1:maxt
             AcontribPopTime_sum = 0.0
             AcontribPopTime_count = 0.0
-            for i in 0:m-1
+            for i in 1:m
                 for g in 1:G
-                    if AcontribIndivGroupTime[i+1, g, tt+1] > 0.0
-                        AcontribPopTime_sum += AcontribIndivGroupTime[i+1, g, tt+1]
+                    if AcontribIndivGroupTime[i, g, tt] > 0.0
+                        AcontribPopTime_sum += AcontribIndivGroupTime[i, g, tt]
                         AcontribPopTime_count += 1.0
                     end
                 end
             end
-            AcontribPopTime[tt+1, iterSub+1] = AcontribPopTime_sum / AcontribPopTime_count
+            AcontribPopTime[tt, iterSub+1] = AcontribPopTime_sum / AcontribPopTime_count
         end
         
         for g in 1:G
             AcontribGroup_sum = 0.0
             AcontribGroup_count = 0.0
-            for tt in 0:maxt-1
-                for i in 0:m-1
-                    if AcontribIndivGroupTime[i+1, g, tt+1] > 0.0
-                        AcontribGroup_sum += AcontribIndivGroupTime[i+1, g, tt+1]
+            for tt in 1:maxt
+                for i in 1:m
+                    if AcontribIndivGroupTime[i, g, tt] > 0.0
+                        AcontribGroup_sum += AcontribIndivGroupTime[i, g, tt]
                         AcontribGroup_count += 1.0
                     end
                 end
@@ -1094,22 +1070,22 @@ function MCMCiFFBS_(N::Int,
         end
         
         for g in 1:G
-            for tt in 0:maxt-1
+            for tt in 1:maxt
                 AcontribGroupTime_sum = 0.0
                 AcontribGroupTime_count = 0.0
-                for i in 0:m-1
-                    if AcontribIndivGroupTime[i+1, g, tt+1] > 0.0
-                        AcontribGroupTime_sum += AcontribIndivGroupTime[i+1, g, tt+1]
+                for i in 1:m
+                    if AcontribIndivGroupTime[i, g, tt] > 0.0
+                        AcontribGroupTime_sum += AcontribIndivGroupTime[i, g, tt]
                         AcontribGroupTime_count += 1.0
                     end
                 end
-                AcontribGroupTime[g, tt+1, iterSub+1] = AcontribGroupTime_sum / AcontribGroupTime_count
+                AcontribGroupTime[g, tt, iterSub+1] = AcontribGroupTime_sum / AcontribGroupTime_count
             end
         end
         
         # Saving temporary MCMC results in files
         if (iter+1) % blockSize == 0
-            println("File with the first $(iter+1) iterations has been saved.")
+            # File save notification removed
             
             # Save results using JLD2 or similar serialization
             # Note: In Julia, you might want to use JLD2.jl or BSON.jl for saving
@@ -1164,124 +1140,4 @@ end
 # Mathematical helper functions
 logit(x) = log(x / (1 - x))
 logistic(x) = 1 / (1 + exp(-x))
-log1mexp(x) = log1p(-exp(x))
-
-# Statistical distributions
-using Distributions
-
-# Placeholder functions that need to be implemented:
-function MakeSeasonVec_(numSeasons, seasonStart, maxt)
-    # Implementation needed
-    return repeat(1:numSeasons, outer=ceil(Int, maxt/numSeasons))[1:maxt]
-end
-
-function LocateIndiv(TestMat, birthTimes)
-    # Implementation needed
-    m = length(birthTimes)
-    maxt = size(TestMat, 1)
-    return zeros(Int, m, maxt)
-end
-
-function TestMatAsField(TestMat, m)
-    # Implementation needed
-    return [zeros(Int, 0, 0) for _ in 1:m]
-end
-
-function TestTimesField(TestMat, m)
-    # Implementation needed
-    return [zeros(Int, 0) for _ in 1:m]
-end
-
-function iFFBScalcLogProbRest(jj, tt, logProbRest, X, SocGroup, 
-                             LogProbDyingMat, LogProbSurvMat, 
-                             logProbStoSgivenSorE, logProbStoEgivenSorE, 
-                             logProbStoSgivenI, logProbStoEgivenI, 
-                             logProbStoSgivenD, logProbStoEgivenD, 
-                             logProbEtoE, logProbEtoI)
-    # Implementation needed
-end
-
-function iFFBS_(alpha_js, beta, q, tau, k, K,
-               probDyingMat, LogProbDyingMat, LogProbSurvMat,
-               logProbRest, nuTimes, nuEs, nuIs, thetas, rhos, phis, etas, 
-               jj, birthTime, startSamplingPeriod, endSamplingPeriod,
-               X, seasonVec, TestField_jj, TestTimes_jj, CaptHist,
-               corrector, predProb, filtProb, logTransProbRest,
-               numInfecMat, SocGroup, mPerGroup, idVecAll,
-               logProbStoSgivenSorE, logProbStoEgivenSorE, 
-               logProbStoSgivenI, logProbStoEgivenI, 
-               logProbStoSgivenD, logProbStoEgivenD, 
-               logProbEtoE, logProbEtoI, whichRequireUpdate, sumLogCorrector)
-    # Implementation needed
-end
-
-function HMC_2(pars, G, X, totalNumInfec, SocGroup, totalmPerGroup,
-              birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit,
-              ageMat, epsilon, epsilonalphas, epsilonbq, epsilontau, epsilonc1, nParsBlock1, L, 
-              hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
-    # Implementation needed
-    return pars
-end
-
-function RWMH_(can, pars, G, X, totalNumInfec, SocGroup, totalmPerGroup,
-             birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit,
-             ageMat, hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
-    # Implementation needed
-    return pars
-end
-
-function HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, 
-                        endSamplingPeriod, TestField, TestTimes, 
-                        hp_theta, hp_rho, epsilonsens, L)
-    # Implementation needed
-    return vcat(thetas, rhos)
-end
-
-function RWMH_thetas_rhos(thetas, rhos, X, startSamplingPeriod, 
-                         endSamplingPeriod, TestField, TestTimes, 
-                         hp_theta, hp_rho, Sigma2)
-    # Implementation needed
-    return vcat(thetas, rhos)
-end
-
-function TestMatAsFieldProposal(TestFieldProposal, TestField, TestTimes, xi, xiCan, m)
-    # Implementation needed
-end
-
-function RWMH_xi(xiCan, xi, hp_xi, TestFieldProposal, TestField, TestTimes, 
-                thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
-    # Implementation needed
-    return xi
-end
-
-function CheckSensSpec_(numTests, TestField, TestTimes, X)
-    # Implementation needed
-    return zeros(Int, 4, numTests)
-end
-
-function logPost_(pars, G, X, totalNumInfec, SocGroup, totalmPerGroup,
-                 birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit,
-                 ageMat, hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
-    # Implementation needed
-    return 0.0
-end
-
-function TrProbDeath_(age, a2, b2, c1, log_scale)
-    # Implementation needed
-    return 0.0
-end
-
-function TrProbSurvive_(age, a2, b2, c1, log_scale)
-    # Implementation needed
-    return 0.0
-end
-
-function ErlangCDF(x, k, tau)
-    # Implementation needed
-    return 0.0
-end
-
-function multrnorm(mean, cov)
-    # Implementation needed - multivariate normal random draw
-    return rand(MvNormal(mean, cov))
-end
+log1mexp(x) = log1p(exp(-x))
