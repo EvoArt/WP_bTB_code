@@ -145,7 +145,6 @@ for i in 1:m
     individual_rows = findall(row -> row[1] == i, eachrow(TestMat))
     
     for tt in 1:maxt
-        isInfec = zeros(Int, numTests)
         # Find rows for this time point by filtering TestMat directly
         time_rows = filter(row_idx -> TestMat[row_idx, 2] == tt, individual_rows)      
         
@@ -155,9 +154,9 @@ for i in 1:m
             
             if any(x -> x == 1, test_results)
                 # infection starting at time of first positive test result
-                earliest_pos_time = Int(minimum([TestMat[row, 2] for row in time_rows if !isnan(TestMat[row, 2]) && any(x -> x == 1, TestMat[row, 3:end])]))
-                Xinit[i, 1:earliest_pos_time] .= 1.0  # Use Float64
-                break
+                infecTimesEarlier = 0
+                tStartInfec = max(birthTimes[i]+1, startSamplingPeriod[i], tt-infecTimesEarlier, 1)
+                Xinit[i, Int(tStartInfec)] = 3.0  # infection starting as Exposed (state 3)
             end
         end
     end
@@ -166,15 +165,15 @@ end
 # Assuming E becomes I some quarters later and forcing no E->S and I->E
 for i in 1:m
     if any(x -> x == 3, Xinit[i, :])
-        firstInfectedTime = findfirst(x -> x == 3, Xinit[i, :]) - 1
+        firstInfectedTime = findfirst(x -> x == 3, Xinit[i, :])
         if firstInfectedTime < maxt
-            Xinit[i, firstInfectedTime+1:end] .= 3.0  # Use Float64
+            Xinit[i, firstInfectedTime:end] .= 3.0  # Exposed from first infection time onward
         end
         
         timefromEtoI = ceil(rand(Exponential(1/tauInit)))
         firstInfectiousTime = firstInfectedTime + Int(timefromEtoI)
         if firstInfectiousTime < maxt
-            Xinit[i, firstInfectiousTime+1:end] .= 1.0  # Use Float64
+            Xinit[i, firstInfectiousTime:end] .= 1.0  # Infectious after transition period
         end
     end
 end
