@@ -466,8 +466,7 @@ function MCMCiFFBS_(N,
     
     # Start MCMC iterations -------------------------------------------
     for iter in 1:N
-        println("iter: $(iter) out of N=$N")
-        if iter > 0 && (iter+1) % 10 == 0
+        if iter > 0 && (iter+1) % 100 == 0
             println("iter: $(iter+1) out of N=$N")
         end
         
@@ -584,7 +583,6 @@ function MCMCiFFBS_(N,
         end
 
         for jj in 1:m
-            println(jj)
             iFFBS_(alpha_js, beta, q, tau, k, K,
                    probDyingMat,
                    LogProbDyingMat, 
