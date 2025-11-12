@@ -852,3 +852,226 @@ function safe_log1mexp(x)
         return StatsFuns.log1mexp(-x)  # Pass negative to StatsFuns
 end
 
+"""
+    logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)
+
+Compute log posterior for thetas and rhos parameters.
+Ported from C++ logPostThetasRhos.cpp
+"""
+function logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)
+    
+    m = size(X, 1)
+    numTests = size(TestField[1], 2)
+    idxTests = 1:numTests  # Julia is 1-based
+    
+    logLik = 0.0
+    
+    for jj in 1:m  # Julia is 1-based, C++ was 0-based
+        id = jj  # C++: id = jj+1L
+        TestMat_i = TestField[jj]
+        TestTimes_i = TestTimes[jj]
+        
+        t0 = startSamplingPeriod[jj] - 1  # C++: startSamplingPeriod[jj] - 1L
+        maxt_i = endSamplingPeriod[jj] - t0
+        
+        for tt in 0:maxt_i-1  # C++: tt=0; tt<maxt_i; tt++
+            # Find rows where TestTimes_i - t0 == tt+1
+            rows = findall(x -> x - t0 == tt + 1, TestTimes_i)
+            
+            if length(rows) > 0
+                TestMat_i_tt = TestMat_i[rows, :]
+                
+                for (ir_idx, ir) in enumerate(rows)
+                    Tests_ir = TestMat_i_tt[ir_idx, :]
+                    valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                    
+                    for ic in valid_tests
+                        i = ic  # Julia is 1-based
+                        
+                        if X[id, tt + t0 + 1] == 3  # Exposed state (C++: X(id-1,tt+t0)==3L)
+                            test_result = Tests_ir[i]
+                            logLik += log((thetas[i] * rhos[i])^test_result * 
+                                        (1 - thetas[i] * rhos[i])^(1 - test_result))
+                        elseif X[id, tt + t0 + 1] == 1  # Infectious state (C++: X(id-1,tt+t0)==1L)
+                            test_result = Tests_ir[i]
+                            logLik += log(thetas[i]^test_result * 
+                                        (1 - thetas[i])^(1 - test_result))
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    # Log prior with Jacobian
+    thetasLogPriorWithJac = 0.0
+    rhosLogPriorWithJac = 0.0
+    
+    for iTest in 1:numTests
+        thetaLogit = logit(thetas[iTest])
+        rhoLogit = logit(rhos[iTest])
+        
+        thetasLogPriorWithJac += hp_theta[1] * thetaLogit - 
+            (hp_theta[1] + hp_theta[2]) * log(1 + exp(thetaLogit))
+        rhosLogPriorWithJac += hp_rho[1] * rhoLogit - 
+            (hp_rho[1] + hp_rho[2]) * log(1 + exp(rhoLogit))
+    end
+    
+    logPost = logLik + thetasLogPriorWithJac + rhosLogPriorWithJac
+    return logPost
+end
+
+"""
+    gradThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)
+
+Compute gradient of log posterior for thetas and rhos parameters.
+Ported from C++ gradThetasRhos.cpp
+"""
+function gradThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)
+    
+    m = size(X, 1)
+    numTests = size(TestField[1], 2)
+    idxTests = 1:numTests  # Julia is 1-based
+    
+    derivloglik = zeros(Float64, 2 * numTests)
+    
+    for jj in 1:m  # Julia is 1-based
+        id = jj  # C++: id = jj+1L
+        TestMat_i = TestField[jj]
+        TestTimes_i = TestTimes[jj]
+        
+        t0 = startSamplingPeriod[jj] - 1  # C++: startSamplingPeriod[jj] - 1L
+        maxt_i = endSamplingPeriod[jj] - t0
+        
+        for tt in 0:maxt_i-1  # C++: tt=0; tt<maxt_i; tt++
+            # Find rows where TestTimes_i - t0 == tt+1
+            rows = findall(x -> x - t0 == tt + 1, TestTimes_i)
+            
+            if length(rows) > 0
+                TestMat_i_tt = TestMat_i[rows, :]
+                
+                for (ir_idx, ir) in enumerate(rows)
+                    Tests_ir = TestMat_i_tt[ir_idx, :]
+                    valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                    
+                    for ic in valid_tests
+                        i = ic  # Julia is 1-based
+                        
+                        if X[id, tt + t0 + 1] == 3  # Exposed state (C++: X(id-1,tt+t0)==3L)
+                            expThetaTilde = exp(logit(thetas[i]))
+                            expRhoTilde = exp(logit(rhos[i]))
+                            test_result = Tests_ir[i]
+                            
+                            # Derivatives wrt theta
+                            derivloglik[i] += test_result * (1 - thetas[i]) + 
+                                (1 - test_result) * (expThetaTilde / (1 + expThetaTilde + expRhoTilde) - thetas[i])
+                            
+                            # Derivatives wrt rho
+                            derivloglik[i + numTests] += test_result * (1 - rhos[i]) + 
+                                (1 - test_result) * (expRhoTilde / (1 + expThetaTilde + expRhoTilde) - rhos[i])
+                            
+                        elseif X[id, tt + t0 + 1] == 1  # Infectious state (C++: X(id-1,tt+t0)==1L)
+                            test_result = Tests_ir[i]
+                            
+                            # Derivatives wrt theta
+                            derivloglik[i] += test_result * (1 - thetas[i]) - 
+                                (1 - test_result) * thetas[i]
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    # Derivative of log prior with Jacobian
+    derivLogPriorWithJac = zeros(Float64, 2 * numTests)
+    for iTest in 1:numTests
+        derivLogPriorWithJac[iTest] = hp_theta[1] - (hp_theta[1] + hp_theta[2]) * thetas[iTest]
+        derivLogPriorWithJac[iTest + numTests] = hp_rho[1] - (hp_rho[1] + hp_rho[2]) * rhos[iTest]
+    end
+    
+    grad = derivloglik + derivLogPriorWithJac
+    return grad
+end
+
+"""
+    HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho, epsilonsens, L)
+
+Hamiltonian Monte Carlo update for thetas and rhos parameters.
+Ported from C++ HMC_thetas_rhos.cpp
+"""
+function HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho, epsilonsens, L)
+    
+    numTests = length(thetas)
+    out = zeros(Float64, 2 * numTests)
+    
+    # Stack into unique vector
+    cur = zeros(Float64, 2 * numTests)
+    for iTest in 1:numTests
+        cur[iTest] = thetas[iTest]
+        cur[iTest + numTests] = rhos[iTest]
+    end
+    
+    # Multivariate normal proposal
+    p = randn(2 * numTests)
+    curp = copy(p)
+    
+    q_thetas = zeros(Float64, numTests)
+    q_rhos = zeros(Float64, numTests)
+    for iTest in 1:numTests
+        q_thetas[iTest] = cur[iTest]
+        q_rhos[iTest] = cur[iTest + numTests]
+    end
+    
+    q = logit.(cur)
+    
+    # Half step for momentum
+    p = p + epsilonsens * gradThetasRhos(q_thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, 
+                                        TestField, TestTimes, hp_theta, hp_rho) / 2
+    
+    # Random number of leapfrog steps
+    intL = ceil(rand() * L)
+    
+    for i in 1:intL-1
+        q = q + epsilonsens * p
+        
+        for iTest in 1:numTests
+            q_thetas[iTest] = logistic(q[iTest])
+            q_rhos[iTest] = logistic(q[iTest + numTests])
+        end
+        
+        p = p + epsilonsens * gradThetasRhos(q_thetas, q_rhos, X, startSamplingPeriod, endSamplingPeriod, 
+                                           TestField, TestTimes, hp_theta, hp_rho)
+    end
+    
+    # Final leapfrog step
+    q = q + epsilonsens * p
+    for iTest in 1:numTests
+        q_thetas[iTest] = logistic(q[iTest])
+        q_rhos[iTest] = logistic(q[iTest + numTests])
+    end
+    
+    # Half step for momentum
+    p = p + epsilonsens * gradThetasRhos(q_thetas, q_rhos, X, startSamplingPeriod, endSamplingPeriod, 
+                                        TestField, TestTimes, hp_theta, hp_rho) / 2
+    p = -p
+    
+    # Calculate Hamiltonian
+    ProposedH = logPostThetasRhos(q_thetas, q_rhos, X, startSamplingPeriod, endSamplingPeriod,
+                                 TestField, TestTimes, hp_theta, hp_rho) - 0.5 * dot(p, p)
+    CurrentH = logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod,
+                                TestField, TestTimes, hp_theta, hp_rho) - 0.5 * dot(curp, curp)
+    
+    prob = exp(ProposedH - CurrentH)
+    alpha = min(1.0, prob)
+    u = rand()
+    
+    if u < alpha
+        out = logistic.(q)
+    else
+        out = cur
+    end
+    
+    return out
+end
+
