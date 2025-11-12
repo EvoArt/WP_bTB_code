@@ -1,4 +1,4 @@
-using LinearAlgebra, StatsFuns, StatsBase
+using LinearAlgebra, StatsFuns, StatsBase, Distributions
 
 """
     MCMCiFFBS_(N, initParamValues, Xinit, TestMat, CaptHist, birthTimes, 
@@ -133,7 +133,6 @@ function MCMCiFFBS_(N,
     end
     
     numNuTimes = length(nuTimes)
-    # Debug prints removed
     nParsNotGibbs = G + 4 + 3 + 2*numNuTimes + 1 
     # G alphas, lambda, beta, q, tau, survival rates, init probs, Brock changepoint
     
@@ -259,7 +258,6 @@ function MCMCiFFBS_(N,
         end
     end
     
-    # Parameter estimates (debugging removed)
     nPars = Int64(nParsNotGibbs + 3*numTests + numSeasons)
     out = zeros(Float64, N, nPars)
     
@@ -468,7 +466,7 @@ function MCMCiFFBS_(N,
     
     # Start MCMC iterations -------------------------------------------
     for iter in 1:N
-        
+        println("iter: $(iter) out of N=$N")
         if iter > 0 && (iter+1) % 10 == 0
             println("iter: $(iter+1) out of N=$N")
         end
@@ -512,8 +510,8 @@ function MCMCiFFBS_(N,
             end
         end
         
-        logProbEtoE = log(1.0 - ErlangCDF(1, k, tau/Float64(k)))
-        logProbEtoI = log(ErlangCDF(1, k, tau/Float64(k)))
+        logProbEtoE = log(1.0 - cdf(Erlang(k, tau/k), 1))
+        logProbEtoI = log(cdf(Erlang(k, tau/k), 1))
         
         # Update probs from tt to tt+1 using new infection rates
         logProbStoSgivenSorE = zeros(Float64, G, maxt-1)
@@ -530,23 +528,23 @@ function MCMCiFFBS_(N,
                 if SocGroup[1, tt] == g
                     # if 1st individual is alive and S or E
                     inf_mgt = numInfecMat[g, tt] / ((Float64(mgt+1.0)/K)^q)
-                    logProbStoSgivenSorE[g, tt] = -alpha_js[g] - beta*inf_mgt
-                    logProbStoEgivenSorE[g, tt] = log1mexp(alpha_js[g] + beta*inf_mgt)
+                    logProbStoSgivenSorE[g, tt] = -alpha_js[g] - beta*inf_mgt                                  
+                    logProbStoEgivenSorE[g, tt] = safe_log1mexp(alpha_js[g] + beta*inf_mgt)
                     
                     # if 1st individual is alive and I
                     inf_mgt = (numInfecMat[g, tt] + 1.0) / ((Float64(mgt+1.0)/K)^q)
                     logProbStoSgivenI[g, tt] = -alpha_js[g] - beta*inf_mgt
-                    logProbStoEgivenI[g, tt] = log1mexp(alpha_js[g] + beta*inf_mgt)
+                    logProbStoEgivenI[g, tt] = safe_log1mexp(alpha_js[g] + beta*inf_mgt)
                     
                     # if 1st individual is dead
                     inf_mgt = numInfecMat[g, tt] / ((Float64(mgt)/K)^q)
                     logProbStoSgivenD[g, tt] = -alpha_js[g] - beta*inf_mgt
-                    logProbStoEgivenD[g, tt] = log1mexp(alpha_js[g] + beta*inf_mgt)
+                    logProbStoEgivenD[g, tt] = safe_log1mexp(alpha_js[g] + beta*inf_mgt)
                 else
                     # if 1st individual is alive and S or E
                     inf_mgt = numInfecMat[g, tt] / ((Float64(mgt)/K)^q)
                     FOI = alpha_js[g] + beta*inf_mgt
-                    log1mexpFOI = log1mexp(FOI)
+                    log1mexpFOI = safe_log1mexp(FOI)
                     
                     logProbStoSgivenSorE[g, tt] = -FOI
                     logProbStoEgivenSorE[g, tt] = log1mexpFOI
@@ -568,13 +566,13 @@ function MCMCiFFBS_(N,
         logProbRest = zeros(Float64, maxt-1, 4, m)
         for jj in 2:m
             for tt in 1:maxt-1
-                # update logProbRest(tt,_,jj) except 1st individual
-                if X[jj, tt] == 0 || X[jj, tt] == 1 || X[jj, tt] == 3
-                    iFFBScalcLogProbRest(jj, tt, logProbRest, X, SocGroup, 
-                                         LogProbDyingMat, LogProbSurvMat, 
-                                         logProbStoSgivenSorE, logProbStoEgivenSorE, 
-                                         logProbStoSgivenI, logProbStoEgivenI, 
-                                         logProbStoSgivenD, logProbStoEgivenD, 
+                # update  logProbRest(tt,_,jj) except 1st individual
+                if (X[jj, tt] == 0) || (X[jj, tt] == 1) || (X[jj, tt] == 3)
+                    iFFBScalcLogProbRest(jj, tt, logProbRest, X, SocGroup,
+                                         LogProbDyingMat, LogProbSurvMat,
+                                         logProbStoSgivenSorE, logProbStoEgivenSorE,
+                                         logProbStoSgivenI, logProbStoEgivenI,
+                                         logProbStoSgivenD, logProbStoEgivenD,
                                          logProbEtoE, logProbEtoI)
                 end
             end
@@ -584,9 +582,9 @@ function MCMCiFFBS_(N,
         for jj in 2:m
             logTransProbRest += logProbRest[:, :, jj]
         end
-        
+
         for jj in 1:m
-            # updating X(jj, _)
+            println(jj)
             iFFBS_(alpha_js, beta, q, tau, k, K,
                    probDyingMat,
                    LogProbDyingMat, 
@@ -598,30 +596,17 @@ function MCMCiFFBS_(N,
                    thetas, 
                    rhos,
                    phis,
-                   etas, 
-                   jj, 
-                   birthTimes[jj],
-                   startSamplingPeriod[jj],
-                   endSamplingPeriod[jj],
-                   X,
-                   seasonVec,
-                   TestField[jj],
-                   TestTimes[jj],
-                   CaptHist,
-                   corrector,
-                   predProb,
-                   filtProb,
-                   logTransProbRest,
-                   numInfecMat, 
-                   SocGroup,
-                   mPerGroup,
-                   idVecAll,
+                   etas,
+                   jj, birthTimes[jj], startSamplingPeriod[jj], endSamplingPeriod[jj],
+                   X, seasonVec, TestField[jj], TestTimes[jj], CaptHist, corrector, predProb, filtProb, 
+                   logTransProbRest, numInfecMat, SocGroup, mPerGroup, idVecAll,
                    logProbStoSgivenSorE, logProbStoEgivenSorE, 
                    logProbStoSgivenI, logProbStoEgivenI, 
                    logProbStoSgivenD, logProbStoEgivenD, 
                    logProbEtoE, logProbEtoI, 
                    whichRequireUpdate, 
                    sumLogCorrector)
+  
         end
         
         lastObsAliveTimes = zeros(Int, m)
@@ -772,7 +757,7 @@ function MCMCiFFBS_(N,
             vecSub = out0[iter-98:iter]
             d = diff(vecSub)
             
-            ccc = count(x -> x != 0, d)
+            ccc = Base.count(x -> x != 0, d)
             
             acc = ccc / 99
             
@@ -957,9 +942,9 @@ function MCMCiFFBS_(N,
         # Saving nInf, nSus, nTot, nSusTested, nExpTested, nInfTested
         g_i_tt = 0
         for tt in 1:maxt
-            nSus[tt, iter+1] = count(x -> x == 0, X[:, tt])
-            nExp[tt, iter+1] = count(x -> x == 3, X[:, tt])
-            nInf[tt, iter+1] = count(x -> x == 1, X[:, tt])
+            nSus[tt, iter+1] = Base.count(x -> x == 0, X[:, tt])
+            nExp[tt, iter+1] = Base.count(x -> x == 3, X[:, tt])
+            nInf[tt, iter+1] = Base.count(x -> x == 1, X[:, tt])
             
             for i in 1:m
                 g_i_tt = SocGroup[i, tt]
@@ -1014,7 +999,7 @@ function MCMCiFFBS_(N,
                 
                 if tt > 1 # at time interval (t-1, t), we do not know infection rates
                     g = SocGroup[i, tt]
-                    totalFOI = alpha_js[g] + beta * totalNumInfec[g, tt] / ((Float64(totalmPerGroup[g, tt])/K)^q)
+                    totalFOI = alpha_js[g] + beta * totalNumInfec[g, tt-1] / ((Float64(totalmPerGroup[g, tt-1])/K)^q)
                     AcontribIndivGroupTime[i, g, tt] = alpha_js[g] / totalFOI
                 end
             end
@@ -1140,4 +1125,5 @@ end
 # Mathematical helper functions
 logit(x) = log(x / (1 - x))
 logistic(x) = 1 / (1 + exp(-x))
-log1mexp(x) = log1p(exp(-x))
+
+# safe_log1mexp is defined in dimension_corrections.jl

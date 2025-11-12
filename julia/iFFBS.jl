@@ -1,4 +1,4 @@
-using SpecialFunctions
+using SpecialFunctions, Distributions
 function iFFBS_(alpha_js, 
             b, q, tau,k, K,
             probDyingMat,
@@ -41,15 +41,14 @@ function iFFBS_(alpha_js,
             sumLogCorrector)
   
   m,maxt = size(X)
-  
   numStates = size(filtProb,2)
   t0 = startTime #- 1
   maxt_i = endTime - t0
-println("startTime = $startTime")
-println("birthTime = $birthTime")
-println("Soc group:")
-println(SocGroup[id, :])
-#println(hcat(SocGroup[id, :],logProbStoSgivenSorE[SocGroup[id, :]]))
+#println("startTime = $startTime")
+#println("birthTime = $birthTime")
+#println("Soc group:")
+#println(SocGroup[id, :])
+##println(hcat(SocGroup[id, :],logProbStoSgivenSorE[SocGroup[id, :]]))
 
   # update corrector
   ObsProcess!(corrector, t0, endTime, id, CaptHist, TestMat_i, TestTimes_i, 
@@ -72,9 +71,9 @@ println(SocGroup[id, :])
                 # Is min the best function to use here?
     nuIdx = findfirst(nuTimes .== startTime)
     if nuIdx === nothing
-      println("nuIdx = nothing")
-      println("startTime = $startTime")
-      println("nuTimes = $nuTimes")
+      #println("nuIdx = nothing")
+      #println("startTime = $startTime")
+      #println("nuTimes = $nuTimes")
     end
     nuE_i = nuEs[nuIdx]
     nuI_i = nuIs[nuIdx]
@@ -89,8 +88,8 @@ println(SocGroup[id, :])
   predProb[t0,2] = nuE_i  # State 2: Exposed
   predProb[t0,3] = nuI_i  # State 3: Infectious
   predProb[t0,4] = 0.0  # State 4: Dead
-  
-  println("t0 = $(t0)")
+ # println("nuI_i:birth:start = $([nuI_i birthTime startTime])")
+  #println("t0 = $(t0)")
   if t0 < maxt-1
               # why is transProbRest not pre calculated for each row of logTransProbRest?
               # or tick off each t0 and only calc once for each?
@@ -110,15 +109,41 @@ println(SocGroup[id, :])
     
   end
   filtProb[t0,:] .= unnormFiltProb ./ sum(unnormFiltProb)
-  # println("unnormFiltProb = $(unnormFiltProb)")
-  #  println("predProb = $(predProb[t0,:])")
-  #  println("transProbRest = $(transProbRest)")
+  if any(isnan.(filtProb[t0,:]))
+    println("filtProb = $(filtProb[t0,:])")
+    println("unnormFiltProb = $(unnormFiltProb)")
+    println("predProb = $(predProb[t0,:])")
+    println("transProbRest = $(transProbRest)")
+    println("corrector = $(corrector[t0,:])")
+    println("logTransProbRest = $(logTransProbRest[t0,:])")
+    println("unnormFiltProb = $(unnormFiltProb)")
+    println("transProbRest = $(transProbRest)")
+    println("t0 = $t0")
+  end
+  
+  # Track when all filtered probabilities are zero
+  if sum(unnormFiltProb) == 0
+    println("DEBUG: All filtered probabilities are zero for individual i=$id at time t0=$t0")
+    println("DEBUG: oldStatus=$(X[id, t0]), predProb=$(predProb[t0,:]), transProbRest=$(transProbRest)")
+    println("DEBUG: corrector=$(corrector[t0,:]), logTransProbRest=$(logTransProbRest[t0,:])")
+  end
+  
+  # Handle NaN probabilities - set to uniform as fallback
+  if any(isnan.(filtProb[t0,:]))
+    println("WARNING: NaN filtering probabilities detected, setting to uniform")
+    filtProb[t0,:] .= [0.25, 0.25, 0.25, 0.25]
+  end
+  # #println("unnormFiltProb = $(unnormFiltProb)")
+  #  #println("predProb = $(predProb[t0,:])")
+  #  #println("transProbRest = $(transProbRest)")
   
             # I guess because of movement between groups and births/deaths it is
             # not straightforward to do pre-calc for each group
   if maxt_i>2
+    hitnan = false
     # t=2,...,T-1
     for tt in 1:maxt_i-1
+
       g = SocGroup[id, tt-1+t0]
 
       prDeath = probDyingMat[id, tt+t0]
@@ -144,23 +169,45 @@ println(SocGroup[id, :])
       end
       
       filtProb[tt+t0,:] .= unnormFiltProb ./ sum(unnormFiltProb)
+      if any(isnan.(filtProb[tt+t0,:])) & (hitnan == false)
+        hitnan = true
+        println("p00 = $p00")
+        println("p01 = $p01")
+        println("p11 = $p11")
+        println("p12 = $p12")
+        println("p22 = $p22")
+        println("prDeath = $prDeath")
+        println("logprobStoSgivenSorE = $(logProbStoSgivenSorE[g, tt-1+t0])")
+        println("logprobStoEgivenSorE = $(logProbStoEgivenSorE[g, tt-1+t0])")
+        println("filtProb = $(filtProb[tt+t0,:])")
+        println("filtProb WAS $(filtProb[tt+t0-1,:])")
+        println("unnormFiltProb = $(unnormFiltProb)")
+        println("predProb = $(predProb[tt+t0,:])")
+        println("predProb WAS $(predProb[tt+t0-1,:])")
+        println("transProbRest = $(transProbRest)")
+        println("corrector = $(corrector[tt+t0,:])")
+        println("logTransProbRest = $(logTransProbRest[tt+t0,:])")
+        println("logprobEtoE = $(logProbEtoE)")
+        println("logprobEtoI = $(logProbEtoI)")
+        println("prDeath = $prDeath")
+      end
       #=
-      println("p00 = $p00")
-      println("p01 = $p01")
-      println("p11 = $p11")
-      println("p12 = $p12")
-      println("p22 = $p22")
-      println("prDeath = $prDeath")
-      println("logprobStoSgivenSorE = $(logProbStoSgivenSorE[g, tt-1+t0])")
-      println("logprobStoEgivenSorE = $(logProbStoEgivenSorE[g, tt-1+t0])")
-      println("filtProb = $(filtProb[tt+t0,:])")
-      println("unnormFiltProb = $(unnormFiltProb)")
-    println("predProb = $(predProb[tt+t0,:])")
-    println("transProbRest = $(transProbRest)")
+      #println("p00 = $p00")
+      #println("p01 = $p01")
+      #println("p11 = $p11")
+      #println("p12 = $p12")
+      #println("p22 = $p22")
+      #println("prDeath = $prDeath")
+      #println("logprobStoSgivenSorE = $(logProbStoSgivenSorE[g, tt-1+t0])")
+      #println("logprobStoEgivenSorE = $(logProbStoEgivenSorE[g, tt-1+t0])")
+      #println("filtProb = $(filtProb[tt+t0,:])")
+      #println("unnormFiltProb = $(unnormFiltProb)")
+    #println("predProb = $(predProb[tt+t0,:])")
+    #println("transProbRest = $(transProbRest)")
     =#
     end
   end
-      #println(filtProb[end-4:end,:])
+      ##println(filtProb[end-4:end,:])
 
   # t=T
   if maxt_i>=1
@@ -207,25 +254,36 @@ println(SocGroup[id, :])
   
   # Backward Sampling --------------------------------------
 
- # println(logProbStoSgivenSorE[g,t0:maxt_i])
-  #println(logProbStoSgivenSorE[g,:])
+ # #println(logProbStoSgivenSorE[g,t0:maxt_i])
+  ##println(logProbStoSgivenSorE[g,:])
 
-   # println(filtProb[endTime-4:endTime,:])
+   # #println(filtProb[endTime-4:endTime,:])
   states =  [0, 3, 1, 9]  # 1-based states
   probs =  filtProb[endTime,:]
-    println("endTime = $endTime")
-  #println("probs = $probs")
+  #=
+  println("endTime = $endTime")
+  println("probs = $probs")
   println("maxt = $maxt_i")
-  #println("t0 = $t0")
-  println(sum(isnan.(logProbStoSgivenSorE)))
-  #println(sum(isnan.(logProbStoEgivenSorE)))
+  println("t0 = $t0")
+  println("predProb = $(predProb[1:4,:])")
+  =#
+  ##println(sum(isnan.(logProbStoEgivenSorE)))
+  if sum(isnan.(probs))>50
+    println("Soc group:")
+    println(SocGroup[id, :])
+    println("filtProb = $(filtProb)")
+    println("predProb = $(predProb)")
+    println("corrector = $(corrector)")
+    println("logTransProbRest = $(logTransProbRest)") 
+  end
   newStatus = sample(states,Weights(probs))
-  #println("newStatus = $newStatus")
+  ##println("newStatus = $newStatus")
 
   X[id, endTime] = newStatus
+  oldStatus = newStatus
     
   # tt will start from maxt_i-1 and finish at 1
-  #println(maxt_i)
+  ##println(maxt_i)
   if maxt_i>1
     for tt=maxt_i-1:-1:1
       
@@ -245,18 +303,18 @@ println(SocGroup[id, :])
       p11 = (1-prDeath)*(1.0 - cdf(Erlang(k, tau/k), 1))
       p12 = (1-prDeath)*cdf(Erlang(k, tau/k), 1)
       p22 = (1-prDeath)
-      #println("pars")
-      #println("-----")
-      #println(p00)
-      #println(p01)
-      #println(p11)
-      #println(p12)
-      #println(p22)
-      #println(prDeath)
-      #println(a)
-      #println(inf_mgt)
-      #println(mgt)
-      #println("-----")
+      ##println("pars")
+      ##println("-----")
+      ##println(p00)
+      ##println(p01)
+      ##println(p11)
+      ##println(p12)
+      ##println(p22)
+      ##println(prDeath)
+      ##println(a)
+      ##println(inf_mgt)
+      ##println(mgt)
+      ##println("-----")
       
       p09 = prDeath
       p19 = prDeath
@@ -269,13 +327,13 @@ println(SocGroup[id, :])
       
       if X[id, tt+1+t0] == 0
         probSuscep_t = (p00*filtProb[tt+t0, 1])/(predProb[tt+1+t0, 1])
-       ##println("1: probSuscep_t = $(probSuscep_t)")
+       ###println("1: probSuscep_t = $(probSuscep_t)")
         probE_t = 0.0
         probI_t = 0.0
         probDead_t = 0.0
       elseif X[id, tt+1+t0] == 3
         probSuscep_t = (p01*filtProb[tt+t0, 1])/(predProb[tt+1+t0, 2])
-       # #println("2: probSuscep_t = $(probSuscep_t)")
+       # ##println("2: probSuscep_t = $(probSuscep_t)")
         probE_t = (p11*filtProb[tt+t0, 2])/(predProb[tt+1+t0, 2])
         probI_t = 0.0
         probDead_t = 0.0
@@ -283,25 +341,35 @@ println(SocGroup[id, :])
         probSuscep_t = 0.0
         probE_t = (p12*filtProb[tt+t0, 2])/(predProb[tt+1+t0, 3])
         probI_t = (p22*filtProb[tt+t0, 3])/(predProb[tt+1+t0, 3])
-        ##println("3: probSuscep_t = $(probSuscep_t)")
+        ###println("3: probSuscep_t = $(probSuscep_t)")
         probDead_t = 0.0
       elseif X[id, tt+1+t0] == 9
         probSuscep_t = (p09*filtProb[tt+t0, 1])/(predProb[tt+1+t0, 4])
-       # #println("4: probSuscep_t = $(probSuscep_t)")
+       # ##println("4: probSuscep_t = $(probSuscep_t)")
         probE_t = (p19*filtProb[tt+t0, 2])/(predProb[tt+1+t0, 4])
         probI_t = (p29*filtProb[tt+t0, 3])/(predProb[tt+1+t0, 4])
         probDead_t = filtProb[tt+t0, 4]/predProb[tt+1+t0, 4]
       end
       
       probs = [probSuscep_t, probE_t, probI_t, probDead_t]
-      ##println(probs)
+      
+      # Handle NaN/Inf probabilities - set to uniform as fallback
+      if any(isnan.(probs)) || any(isinf.(probs))
+          println("WARNING: NaN/Inf sampling probabilities detected, setting to uniform")
+          probs = [0.25, 0.25, 0.25, 0.25]
+      end
+      
+      ###println(probs)
       if (tt==1) && (birthTime>=startTime) 
         probs = [1.0, 0.0, 0.0, 0.0]
       end
 
-       #println("probs = $probs")
+       ##println("probs = $probs")
+       
+  # Debug: Track when E→S transitions might occur
+  
   newStatus = sample(states,Weights(probs))
-  #println("newStatus = $newStatus")
+  ##println("newStatus = $newStatus")
 
 
       X[id, tt+t0] = newStatus
@@ -406,16 +474,14 @@ println(SocGroup[id, :])
         
         inf_mgt = numInfecMat[g_idNext, tt]/((Float64(mgt + 1.0)/K)^q)
         logProbStoSgivenSorE[g_idNext, tt] = -a - b*inf_mgt
-        isnan(logProbStoSgivenSorE[g_idNext, tt]) ? println([a, b, inf_mgt]) : nothing
-        logProbStoEgivenSorE[g_idNext, tt] = log1mexp(a + b*inf_mgt)
-        isnan(logProbStoEgivenSorE[g_idNext, tt]) ? println([a, b, inf_mgt]) : nothing
+        logProbStoEgivenSorE[g_idNext, tt] = safe_log1mexp(a + b*inf_mgt)
         inf_mgt = (numInfecMat[g_idNext, tt]+1)/((Float64(mgt + 1.0)/K)^q)
         logProbStoSgivenI[g_idNext, tt] = -a - b*inf_mgt
-        logProbStoEgivenI[g_idNext, tt] = log1mexp(a + b*inf_mgt)
+        logProbStoEgivenI[g_idNext, tt] = safe_log1mexp(a + b*inf_mgt)
         
         inf_mgt = numInfecMat[g_idNext, tt]/((Float64(mgt)/K)^q)
         logProbStoSgivenD[g_idNext, tt] = -a - b*inf_mgt
-        logProbStoEgivenD[g_idNext, tt] = log1mexp(a + b*inf_mgt)
+        logProbStoEgivenD[g_idNext, tt] = safe_log1mexp(a + b*inf_mgt)
         
       end
 
@@ -442,14 +508,14 @@ println(SocGroup[id, :])
         
         inf_mgt = numInfecMat[g, tt]/((Float64(mgt)/K)^q)
         logProbStoSgivenSorE[g, tt] = -a - b*inf_mgt
-        logProbStoEgivenSorE[g, tt] = log1mexp(a + b*inf_mgt)
+        logProbStoEgivenSorE[g, tt] = safe_log1mexp(a + b*inf_mgt)
         # inf_mgt = numInfecMat(g-1, tt)/(^(float mgt, q))
         logProbStoSgivenI[g, tt] = -a - b*inf_mgt
-        logProbStoEgivenI[g, tt] = log1mexp(a + b*inf_mgt)
+        logProbStoEgivenI[g, tt] = safe_log1mexp(a + b*inf_mgt)
         
         # inf_mgt = numInfecMat(g-1, tt)/(^(float mgt, q))
         logProbStoSgivenD[g, tt] = -a - b*inf_mgt
-        logProbStoEgivenD[g, tt] = log1mexp(a + b*inf_mgt)    
+        logProbStoEgivenD[g, tt] = safe_log1mexp(a + b*inf_mgt)    
               
       end
             
@@ -472,17 +538,15 @@ println(SocGroup[id, :])
         
         inf_mgt = numInfecMat[g_idNext, tt]/((Float64(mgt + 1.0)/K)^q)
         logProbStoSgivenSorE[g_idNext, tt] = -a - b*inf_mgt
-        logProbStoEgivenSorE[g_idNext, tt] = log1mexp(a + b*inf_mgt)
-         isnan(logProbStoEgivenSorE[g_idNext, tt]) ? println([a, b, inf_mgt]) : nothing
-        isnan(logProbStoSgivenSorE[g_idNext, tt]) ? println([a, b, inf_mgt]) : nothing
+        logProbStoEgivenSorE[g_idNext, tt] = safe_log1mexp(a + b*inf_mgt)
 
         inf_mgt = (numInfecMat[g_idNext, tt]+1)/((Float64(mgt + 1.0)/K)^q)
         logProbStoSgivenI[g_idNext, tt] = -a - b*inf_mgt
-        logProbStoEgivenI[g_idNext, tt] = log1mexp(a + b*inf_mgt)
+        logProbStoEgivenI[g_idNext, tt] = safe_log1mexp(a + b*inf_mgt)
         
         inf_mgt = numInfecMat[g_idNext, tt]/((Float64(mgt)/K)^q)
         logProbStoSgivenD[g_idNext, tt] = -a - b*inf_mgt
-        logProbStoEgivenD[g_idNext, tt] = log1mexp(a + b*inf_mgt)
+        logProbStoEgivenD[g_idNext, tt] = safe_log1mexp(a + b*inf_mgt)
         
       end
       
@@ -497,7 +561,7 @@ println(SocGroup[id, :])
   # consider new rate values
   if id < m
     
-    c = (id)*(maxt-1)
+    c = (id-1)*(maxt-1)
     # g_1  # This variable will be used later
 
     # current individual (id) will be in logProbRest when updating idNext
@@ -518,7 +582,14 @@ println(SocGroup[id, :])
       # removing logProbRest(tt,s,idNext)
       # (idNext must not be included in logProbRest when updating idNext)
       for s in 1:numStates
-        logTransProbRest[tt, s] += (logProbRest[tt, s, id] - logProbRest[tt, s, idNext])
+        if id == 1
+          # Special case: individual 1 was excluded from logTransProbRest initialization
+          # so we add zeros (equivalent to C++ logProbRest(tt,s,0L) which is uninitialized)
+          logTransProbRest[tt, s] += (0.0 - logProbRest[tt, s, idNext])
+        else
+          # Normal case: use the individual's contribution
+          logTransProbRest[tt, s] += (logProbRest[tt, s, id] - logProbRest[tt, s, idNext])
+        end
         logProbRest[tt, s, idNext] = 0.0
       end
       
@@ -531,7 +602,7 @@ println(SocGroup[id, :])
       # whichArma = whichRequireUpdate(pos)
       # for(auto & jj : whichArma){
       
-      for jj in whichRequireUpdate[c + tt ]
+      for jj in whichRequireUpdate[c + tt]
       
         if X[jj, tt] == 0
 
@@ -568,6 +639,9 @@ println(SocGroup[id, :])
   # Rcout << "logTransProbRest for next ID calculated: " << std::endl
 
 end
+
+# Mathematical helper functions
+# safe_log1mexp is defined in dimension_corrections.jl
 
 # Using this:
 # for(auto & jj : whichRequireUpdate(c + tt)){

@@ -188,7 +188,7 @@ function grad__CORRECTED(logPars, G,
         alpha_js[g] = exp(logPars[g]) * lambda
     end
     b = exp(logPars[G+2])
-    q = logisticD(logPars[G+3])
+    q = logistic(logPars[G+3])
     ql = logPars[G+3]
     tau = exp(logPars[G+4])
     a2 = exp(logPars[G+5])
@@ -281,6 +281,58 @@ function CheckSensSpec__CORRECTED(numTests,
     return out
 end
 
+function CheckSensSpec__CORRECTED(numTests, TestField, TestTimes, X)
+
+    m = size(X, 1)
+    out = zeros(Int, 4, numTests)
+
+    for iTest in 1:numTests
+
+        numInfecTested = 0
+        numInfecPositives = 0
+        numSuscepTested = 0
+        numSuscepNegatives = 0
+
+        for i in 1:m
+
+            Tests_i = TestField[i]               # matrix (individual × tests)
+            testTimes_i = TestTimes[i]     # convert to 0-based like C++
+            X_i = X[i, :]                        # row vector
+            status = X_i[testTimes_i ]       # back to 1-based
+
+            tests_i = Tests_i[:, iTest]          # column of tests for this test type
+
+            # Exposed (3) or Infectious (1)
+            which_ExpInfec = findall(x -> x == 3 || x == 1, status)
+            tests_i_inf = tests_i[which_ExpInfec]
+
+            newInfTes = Base.count(x -> x == 0 || x == 1, tests_i_inf)
+            newInfPos = Base.count(j -> (status[j] == 3 || status[j] == 1) && tests_i[j] == 1,
+                              eachindex(status))
+
+            numInfecTested += newInfTes
+            numInfecPositives += newInfPos
+
+            # Susceptible (0)
+            which_suscep = findall(x -> x == 0, status)
+            tests_i_suscep = tests_i[which_suscep]
+
+            newSuscepTes = Base.count(x -> x == 0 || x == 1, tests_i_suscep)
+            newSuscepPos = Base.count(j -> status[j] == 0 && tests_i[j] == 0,
+                                 eachindex(status))
+
+            numSuscepTested += newSuscepTes
+            numSuscepNegatives += newSuscepPos
+        end
+
+        out[1, iTest] = numInfecPositives
+        out[2, iTest] = numInfecTested - numInfecPositives
+        out[3, iTest] = numSuscepNegatives
+        out[4, iTest] = numSuscepTested - numSuscepNegatives
+    end
+
+    return out
+end
 ## CRITICAL ISSUE 4: Vector operations in HMC/RWMH
 
 """
@@ -340,7 +392,7 @@ function HMC_2_CORRECTED(curLogPars, G,
     curp = copy(p)
     
     # Element-wise operations - CRITICAL: use broadcasting
-    p = p .+ epsilon_vec .* grad_(q, G, X, totalNumInfec, SocGroup, totalmPerGroup,
+    p = p .+ epsilon_vec .* grad__CORRECTED(q, G, X, totalNumInfec, SocGroup, totalmPerGroup,
                                 birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit, ageMat, 
                                 hp_lambda, hp_beta, hp_q, hp_tau,
                                 hp_a2, hp_b2, hp_c1, k, K) ./ 2
@@ -350,14 +402,14 @@ function HMC_2_CORRECTED(curLogPars, G,
     for i in 1:intL-1
         # CRITICAL: Broadcasting for vector operations
         q = q .+ epsilon_vec .* p
-        p = p .+ epsilon_vec .* grad_(q, G, X, totalNumInfec, SocGroup, totalmPerGroup,
+        p = p .+ epsilon_vec .* grad__CORRECTED(q, G, X, totalNumInfec, SocGroup, totalmPerGroup,
                                      birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit, ageMat, 
                                      hp_lambda, hp_beta, hp_q, hp_tau,
                                      hp_a2, hp_b2, hp_c1, k, K)
     end
     
     q = q .+ epsilon_vec .* p
-    p = p .+ epsilon_vec .* grad_(q, G, X, totalNumInfec, SocGroup, totalmPerGroup,
+    p = p .+ epsilon_vec .* grad__CORRECTED(q, G, X, totalNumInfec, SocGroup, totalmPerGroup,
                                  birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit, ageMat, 
                                  hp_lambda, hp_beta, hp_q, hp_tau,
                                  hp_a2, hp_b2, hp_c1, k, K) ./ 2
@@ -461,3 +513,342 @@ function normTransProbRest(logProbs)
 
   return out
   end
+
+  function iFFBScalcLogProbRest(
+    i,
+    ttt,
+    logProbRest,             # 3D array: (time, stateIndex, individual)
+    X,                       # infection state matrix
+    SocGroup,                # social group membership matrix
+    LogProbDyingMat,
+    LogProbSurvMat,
+    logProbStoSgivenSorE,
+    logProbStoEgivenSorE,
+    logProbStoSgivenI,
+    logProbStoEgivenI,
+    logProbStoSgivenD,
+    logProbStoEgivenD,
+    logProbEtoE,
+    logProbEtoI
+)
+
+    g = SocGroup[i, ttt]               # social group index
+    state_t  = X[i, ttt]
+    state_t1 = X[i, ttt + 1]
+
+    if state_t == 0 && state_t1 == 0
+        logProbRest[ttt, 1, i] = LogProbSurvMat[i, ttt + 1] + logProbStoSgivenSorE[g, ttt]
+        logProbRest[ttt, 2, i] = LogProbSurvMat[i, ttt + 1] + logProbStoSgivenSorE[g, ttt]
+        logProbRest[ttt, 3, i] = LogProbSurvMat[i, ttt + 1] + logProbStoSgivenI[g, ttt]
+        logProbRest[ttt, 4, i] = LogProbSurvMat[i, ttt + 1] + logProbStoSgivenD[g, ttt]
+
+    elseif state_t == 0 && state_t1 == 3
+        logProbRest[ttt, 1, i] = LogProbSurvMat[i, ttt + 1] + logProbStoEgivenSorE[g, ttt]
+        logProbRest[ttt, 2, i] = LogProbSurvMat[i, ttt + 1] + logProbStoEgivenSorE[g, ttt]
+        logProbRest[ttt, 3, i] = LogProbSurvMat[i, ttt + 1] + logProbStoEgivenI[g, ttt]
+        logProbRest[ttt, 4, i] = LogProbSurvMat[i, ttt + 1] + logProbStoEgivenD[g, ttt]
+
+    elseif state_t == 3 && state_t1 == 3
+        for st in 1:4
+            logProbRest[ttt, st, i] = LogProbSurvMat[i, ttt + 1] + logProbEtoE
+        end
+
+    elseif state_t == 3 && state_t1 == 1
+        for st in 1:4
+            logProbRest[ttt, st, i] = LogProbSurvMat[i, ttt + 1] + logProbEtoI
+        end
+
+    elseif state_t == 1 && state_t1 == 1
+        for st in 1:4
+            logProbRest[ttt, st, i] = LogProbSurvMat[i, ttt + 1]
+        end
+
+    elseif state_t in (0,1,3) && state_t1 == 9
+        for st in 1:4
+            logProbRest[ttt, st, i] = LogProbDyingMat[i, ttt + 1]
+        end
+
+    elseif state_t == 3 && state_t1 == 0
+        # E→S transition - IMPOSSIBLE in SEI model, assign -Inf probability
+        println("DEBUG: E→S transition found for individual i=$i at time ttt=$ttt (state_t=$state_t, state_t1=$state_t1)")
+        println("DEBUG: X[i, ttt] = $(X[i, ttt]), X[i, ttt+1] = $(X[i, ttt+1])")
+        for st in 1:4
+            logProbRest[ttt, st, i] = -Inf
+        end
+
+    elseif state_t == 1 && state_t1 == 3
+        # I→E transition - IMPOSSIBLE in SEI model, assign -Inf probability  
+        for st in 1:4
+            logProbRest[ttt, st, i] = -Inf
+        end
+
+    elseif state_t == 1 && state_t1 == 0
+        # I→S transition - IMPOSSIBLE in SEI model, assign -Inf probability
+        for st in 1:4
+            logProbRest[ttt, st, i] = -Inf
+        end
+    end
+end
+
+"""
+    TrProbDeath_(age, a2, b2, c1, logar=false)
+
+Calculate transition probability of death given age and Gompertz parameters.
+Ported from C++ TrProbDeath_.cpp
+"""
+function TrProbDeath_(age, a2, b2, c1, logar=false)
+    # calculating diffExpsLateLife = exp(b2*(age-1)) - exp(b2*age)
+    y1 = b2 * (age - 1)
+    y2 = b2 * age
+    diffExpsLateLife = -exp(y1 + log(exp(y2 - y1) - 1))
+    log_pt = -c1 + (a2 / b2) * (diffExpsLateLife)
+    # Alternative formulation: double log_pt = - c1 + (a2/b2)*( exp(b2*(age-1)) - exp(b2*age) );
+    out = 1 - exp(log_pt)
+    
+    if logar
+        out = log(out)
+    end
+    
+    return out
+end
+
+"""
+    TrProbSurvive_(age, a2, b2, c1, logar=false)
+
+Calculate transition probability of survival given age and Gompertz parameters.
+Ported from C++ TrProbSurvive_.cpp
+"""
+function TrProbSurvive_(age, a2, b2, c1, logar=true)
+    # calculating diffExpsLateLife = exp(b2*(age-1)) - exp(b2*age)
+    y1 = b2 * (age - 1)
+    y2 = b2 * age
+    diffExpsLateLife = -exp(y1 + log(exp(y2 - y1) - 1))
+    out = -c1 + (a2 / b2) * (diffExpsLateLife)
+    # Alternative formulation: double out = - c1 + (a2/b2)*( exp(b2*(age-1)) - exp(b2*age) );
+    
+    if !logar
+        out = exp(out)
+    end
+    
+    return out
+end
+
+"""
+    logPost_(logPars, G, X, totalNumInfec, SocGroup, totalmPerGroup, 
+            birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit,
+            ageMat, hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
+
+Calculate log posterior probability.
+Ported from C++ logPost_.cpp
+"""
+function logPost_(logPars, G, 
+                  X, 
+                  totalNumInfec,
+                  SocGroup,
+                  totalmPerGroup,
+                  birthTimes,
+                  startSamplingPeriod,
+                  lastObsAliveTimes, 
+                  capturesAfterMonit,
+                  ageMat, 
+                  hp_lambda,
+                  hp_beta,
+                  hp_q,
+                  hp_tau,
+                  hp_a2,
+                  hp_b2,
+                  hp_c1, 
+                  k, 
+                  K)
+    
+    m = size(X, 1)
+    
+    # Extract parameters - match C++ exactly
+    lambda = exp(logPars[G+1])  # C++: logPars[G]
+    alpha_js = zeros(Float64, G)
+    for g in 1:G
+        alpha_js[g] = exp(logPars[g]) * lambda  # C++: g from 0 to G-1
+    end
+    b = exp(logPars[G+2])  # C++: logPars[G+1]
+    q = logistic(logPars[G+3])  # C++: logisticD(logPars[G+2])
+    ql = logPars[G+3]  # C++: logPars[G+2]
+    tau = exp(logPars[G+4])  # C++: logPars[G+3]
+    a2 = exp(logPars[G+5])  # C++: logPars[G+4]
+    b2 = exp(logPars[G+6])  # C++: logPars[G+5]
+    c1 = exp(logPars[G+7])  # C++: logPars[G+6]
+    
+    loglik = 0.0
+    
+    # Main likelihood calculation
+    for i in 1:m  # C++: i from 0 to m-1
+        mint_i = startSamplingPeriod[i]  # C++: startSamplingPeriod[i]
+        
+        # Birth before sampling period correction
+        if birthTimes[i] < startSamplingPeriod[i]
+            # C++: ageMat(i, startSamplingPeriod[i] - birthTimes[i])
+            age_offset = ageMat[i, startSamplingPeriod[i] - birthTimes[i] + 1]
+            loglik += logS(age_offset, a2, b2, c1)
+        end
+        
+        # Main loop over time periods
+        for j in mint_i:(lastObsAliveTimes[i]-1)  # C++: j from mint_i to lastObsAliveTimes[i]-1
+            g = SocGroup[i, j]  # C++: SocGroup(i, j-1)
+            
+            age_ij = Float64(ageMat[i, j+1])  # C++: ageMat(i,j)
+            log_pti = TrProbSurvive_(age_ij, a2, b2, c1, true)
+            z_t_1 = X[i, j]  # C++: X(i,j-1)
+            z_t = X[i, j+1]  # C++: X(i,j)
+            
+            if ((z_t_1 == 0) || (z_t_1 == 1) || (z_t_1 == 3)) && (z_t == 9)
+                log_qti = TrProbDeath_(age_ij, a2, b2, c1, true)
+                loglik += log_qti
+            elseif (z_t_1 == 0) && (z_t == 0)
+                # C++: totalNumInfec(g-1, j-1), totalmPerGroup(g-1, j-1)
+                inf_mgt = totalNumInfec[g, j] / ((Float64(totalmPerGroup[g, j])/K)^q)
+                a = alpha_js[g]  # C++: alpha_js[g-1]
+                loglik += log_pti - a - b * inf_mgt
+            elseif (z_t_1 == 0) && (z_t == 3)
+                inf_mgt = totalNumInfec[g, j] / ((Float64(totalmPerGroup[g, j])/K)^q)
+                a = alpha_js[g]
+                loglik += log_pti + safe_log1mexp(a + b * inf_mgt)
+            elseif (z_t_1 == 3) && (z_t == 3)
+                loglik += log_pti + log(1 - cdf(Erlang(k, tau/k), 1))
+            elseif (z_t_1 == 3) && (z_t == 1)
+                loglik += log_pti + log(cdf(Erlang(k, tau/k), 1))
+            elseif (z_t_1 == 1) && (z_t == 1)
+                loglik += log_pti
+            end
+        end
+    end
+    
+    # Correction for captures after monitoring period
+    numRows = size(capturesAfterMonit, 1)
+    for ir in 1:numRows  # C++: ir from 0 to numRows-1
+        i = capturesAfterMonit[ir, 1]  # C++: capturesAfterMonit(ir, 0)-1L
+        lastCaptTime = capturesAfterMonit[ir, 2]
+        
+        for j in lastObsAliveTimes[i]:(lastCaptTime-1)  # C++: j from lastObsAliveTimes[i] to lastCaptTime-1
+            age_ij = Float64(ageMat[i, j+1])
+            log_pti = TrProbSurvive_(age_ij, a2, b2, c1, true)
+            loglik += log_pti
+        end
+    end
+    
+    # Prior calculations
+    a_prior = 0.0
+    for g in 1:G  # C++: g from 0 to G-1
+        a_prior += -exp(logPars[g]) + logPars[g]
+    end
+    lambda_prior = -hp_lambda[2] * lambda + log(lambda)  # C++: hp_lambda[1]
+    
+    b_prior = logpdf(Gamma(hp_beta[1], 1/hp_beta[2]), b) + log(b)  # C++: hp_beta[0], 1/hp_beta[1]
+    q_prior = hp_q[1] * ql - (hp_q[1] + hp_q[2]) * log(1 + exp(ql))  # C++: hp_q[0], hp_q[1]
+    tau_prior = logpdf(Gamma(hp_tau[1], 1/hp_tau[2]), tau) + log(tau)
+    a2_prior = logpdf(Gamma(hp_a2[1], 1/hp_a2[2]), a2) + log(a2)
+    b2_prior = logpdf(Gamma(hp_b2[1], 1/hp_b2[2]), b2) + log(b2)
+    c1_prior = logpdf(Gamma(hp_c1[1], 1/hp_c1[2]), c1) + log(c1)
+    
+    logprior = a_prior + lambda_prior + b_prior + q_prior + tau_prior +
+               a2_prior + b2_prior + c1_prior
+    
+    logpost = loglik + logprior
+    
+    return logpost
+end
+
+"""
+    logS(age, a2, b2, c1)
+
+Calculate log survival probability.
+Ported from C++ logS function.
+"""
+function logS(age, a2, b2, c1)
+    return TrProbSurvive_(age, a2, b2, c1, true)
+end
+
+"""
+    logisticD(x)
+
+Logistic function (derivative version).
+Ported from C++ logisticD function.
+"""
+function logisticD(x)
+    return 1.0 / (1.0 + exp(-x))
+end
+
+"""
+    multrnorm(mu, Sigma)
+
+Generate multivariate normal random vector.
+Ported from C++ multrnorm.cpp
+"""
+function multrnorm(mu::Vector{Float64}, Sigma::Matrix{Float64})
+    # Use Julia's built-in multivariate normal distribution
+    d = MvNormal(mu, Sigma)
+    return rand(d)
+end
+
+"""
+    RWMH_(can, curLogPars, G, X, totalNumInfec, SocGroup, totalmPerGroup,
+          birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit,
+          ageMat, hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
+
+Random Walk Metropolis-Hastings algorithm.
+Ported from C++ RWMH_.cpp
+"""
+function RWMH_(can, curLogPars, G, 
+               X, 
+               totalNumInfec,
+               SocGroup,
+               totalmPerGroup,
+               birthTimes,
+               startSamplingPeriod,
+               lastObsAliveTimes, 
+               capturesAfterMonit,
+               ageMat,
+               hp_lambda,
+               hp_beta,
+               hp_q,
+               hp_tau,
+               hp_a2,
+               hp_b2,
+               hp_c1,
+               k, 
+               K)
+    
+    out = copy(curLogPars)
+    
+    # Calculate log posterior difference
+    logpostCan = logPost_(can, G, X, totalNumInfec, 
+                          SocGroup, totalmPerGroup,
+                          birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit, 
+                          ageMat, 
+                          hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
+    
+    logpostCur = logPost_(curLogPars, G, X, totalNumInfec, 
+                          SocGroup, totalmPerGroup,
+                          birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit, 
+                          ageMat, 
+                          hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
+    
+    logpostDiff = logpostCan - logpostCur
+    
+    # Accept or reject
+    if log(rand()) < logpostDiff
+        out = copy(can)
+    end
+    
+    return out
+end
+
+"""
+    safe_log1mexp(x)
+
+Safe log1mexp function for infection rates.
+Computes log(1 - exp(-x)) for positive x values.
+Usage: safe_log1mexp(infection_rate) where infection_rate > 0
+"""
+function safe_log1mexp(x)
+        return StatsFuns.log1mexp(-x)  # Pass negative to StatsFuns
+end
+
