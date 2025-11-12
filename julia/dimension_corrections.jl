@@ -1075,3 +1075,42 @@ function HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
     return out
 end
 
+"""
+    TestMatAsFieldProposal(TestFieldProposal, TestField, TestTimes, xi, xiCan, m)
+
+Correct TestFieldProposal given the current TestField for Brock changepoint proposal.
+Ported from C++ TestMatAsField.cpp
+"""
+function TestMatAsFieldProposal(TestFieldProposal, TestField, TestTimes, xi, xiCan, m)
+    
+    for i in 1:m  # Julia is 1-based, C++ was 0-based
+        TestTimes_i = TestTimes[i]
+        Tests_i = copy(TestFieldProposal[i])  # Make a copy to modify
+        numCapt = size(Tests_i, 1)
+        
+        if xiCan < xi  # Proposing an earlier changepoint
+            for irow in 1:numCapt
+                t = TestTimes_i[irow]
+                if (t >= xiCan) && (t < xi)
+                    # Swap Brock1 and Brock2 (columns 1 and 2 in test matrix, 0-based in C++)
+                    brock1 = Tests_i[irow, 1]  # Julia is 1-based
+                    Tests_i[irow, 1] = Tests_i[irow, 2]
+                    Tests_i[irow, 2] = brock1
+                end
+            end
+        else  # Proposing a later changepoint
+            for irow in 1:numCapt
+                t = TestTimes_i[irow]
+                if (t >= xi) && (t < xiCan)
+                    # Swap Brock1 and Brock2 (columns 1 and 2 in test matrix, 0-based in C++)
+                    brock1 = Tests_i[irow, 1]  # Julia is 1-based
+                    Tests_i[irow, 1] = Tests_i[irow, 2]
+                    Tests_i[irow, 2] = brock1
+                end
+            end
+        end
+        
+        TestFieldProposal[i] = Tests_i
+    end
+end
+
