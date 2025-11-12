@@ -423,9 +423,7 @@ function MCMCiFFBS_(N,
             end
         end
     end
-    println(hcat(mPerGroup[27,:],SocGroup[1, :]))
-    println(mPerGroup[27,:])
-    
+
     TestField = TestMatAsField_CORRECTED(TestMat, m)
     TestFieldProposal = copy(TestField)
     TestTimes = TestTimesField(TestMat, m)

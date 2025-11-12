@@ -108,25 +108,20 @@ function iFFBS_(alpha_js,
     end
     
   end
-  filtProb[t0,:] .= unnormFiltProb ./ sum(unnormFiltProb)
-  if any(isnan.(filtProb[t0,:]))
-    println("filtProb = $(filtProb[t0,:])")
-    println("unnormFiltProb = $(unnormFiltProb)")
-    println("predProb = $(predProb[t0,:])")
-    println("transProbRest = $(transProbRest)")
-    println("corrector = $(corrector[t0,:])")
-    println("logTransProbRest = $(logTransProbRest[t0,:])")
-    println("unnormFiltProb = $(unnormFiltProb)")
-    println("transProbRest = $(transProbRest)")
-    println("t0 = $t0")
-  end
-  
   # Track when all filtered probabilities are zero
   if sum(unnormFiltProb) == 0
     println("DEBUG: All filtered probabilities are zero for individual i=$id at time t0=$t0")
     println("DEBUG: oldStatus=$(X[id, t0]), predProb=$(predProb[t0,:]), transProbRest=$(transProbRest)")
     println("DEBUG: corrector=$(corrector[t0,:]), logTransProbRest=$(logTransProbRest[t0,:])")
+    println("DEBUG: unnormFiltProb calculation:")
+    for s in 1:numStates
+      println("  State $s: corrector[$t0,$s]=$(corrector[t0,s]) * predProb[$t0,$s]=$(predProb[t0,s]) * transProbRest[$s]=$(transProbRest[s]) = $(unnormFiltProb[s])")
+    end
+    # Set to uniform before normalization to prevent NaN
+    unnormFiltProb .= [0.25, 0.25, 0.25, 0.25]
   end
+  
+  filtProb[t0,:] .= unnormFiltProb ./ sum(unnormFiltProb)
   
   # Handle NaN probabilities - set to uniform as fallback
   if any(isnan.(filtProb[t0,:]))
