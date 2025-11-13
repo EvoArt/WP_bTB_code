@@ -239,7 +239,17 @@ function iFFBS_(alpha_js,
       end
     end
 
-    filtProb[tt+t0,:] .= unnormFiltProb ./ sum(unnormFiltProb)
+    # Handle numerical issues in normalization
+    sum_unnorm = sum(unnormFiltProb)
+    if sum_unnorm == 0 || !isfinite(sum_unnorm)
+      # If sum is zero or infinite/NaN, use uniform distribution
+      println("⚠️  NUMERICAL ISSUE in forward filter at tt=$tt, id=$id: sum_unnorm=$sum_unnorm")
+      println("   unnormFiltProb: $unnormFiltProb")
+      println("   Falling back to uniform distribution")
+      filtProb[tt+t0,:] .= 1.0 / numStates
+    else
+      filtProb[tt+t0,:] .= unnormFiltProb ./ sum_unnorm
+    end
 
   end
   
@@ -255,6 +265,18 @@ function iFFBS_(alpha_js,
    # #println(filtProb[endTime-4:endTime,:])
   states =  [0, 3, 1, 9]  # 1-based states
   probs =  filtProb[endTime,:]
+  
+  # Additional safety check for probs before sampling
+  if any(isnan.(probs)) || any(isinf.(probs))
+    # Replace any NaN/Inf with uniform distribution
+    println("⚠️  NUMERICAL ISSUE in backward sampling for id=$id at endTime=$endTime")
+    println("   probs: $probs")
+    println("   Falling back to uniform distribution")
+    probs = fill(1.0 / length(probs), length(probs))
+  else
+    # Normalize to ensure sum = 1
+    probs = probs ./ sum(probs)
+  end
   #=
   println("endTime = $endTime")
   println("probs = $probs")

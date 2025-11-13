@@ -1,4 +1,4 @@
-using LinearAlgebra, StatsFuns, StatsBase, Distributions
+using LinearAlgebra, StatsFuns, StatsBase, Distributions, RData, JLD2
 
 """
     MCMCiFFBS_(N, initParamValues, Xinit, TestMat, CaptHist, birthTimes, 
@@ -188,6 +188,17 @@ function MCMCiFFBS_(N,
         b2Init = initParamValues[7]
         c1Init = initParamValues[8]
         
+        # Print scalar parameters immediately (matching C++ format)
+        println("alphaStar = $alphaStarInit")
+        println("lambda = $lambdaInit")
+        println("alpha = $(alphaStarInit*lambdaInit)")
+        println("beta = $betaInit")
+        println("q = $qInit")
+        println("tau = $tauInit")
+        println("a2 = $a2Init")
+        println("b2 = $b2Init")
+        println("c1 = $c1Init")
+        
         for i_nu in 1:numNuTimes
             nuEInit[i_nu] = initParamValues[7 + 1 + i_nu]
         end
@@ -195,7 +206,7 @@ function MCMCiFFBS_(N,
             nuIInit[i_nu] = initParamValues[7 + 1 + numNuTimes + i_nu]
         end
         
-        xiInit = Int(initParamValues[7 + 1 + 2*numNuTimes])
+        xiInit = Int(initParamValues[7 + 2 + 2*numNuTimes])
         
         if xiInit < 1 || xiInit > maxt-1
             error("Initial value for the Brock changepoint is outside the study period.")
@@ -214,23 +225,31 @@ function MCMCiFFBS_(N,
             etasInit[s] = initParamValues[nParsNotGibbs-G+1+3*numTests+s]
         end
         
+        # Print vector parameters (matching C++ format with .t() transpose)
+        println("nuEs = ", nuEInit')
+        println("nuIs = ", nuIInit')
+        println("xi = $xiInit")
+        print("thetas = ", thetasInit')
+        print("rhos = ", rhosInit')
+        print("phis = ", phisInit')
+        print("etas = ", etasInit')
+        
     else
         println("Initial parameter values generated from the prior: ")
         # need to check parametisation
-        lambdaInit = rand(Gamma(hp_lambda[1], 1/hp_lambda[2]))
+        lambdaInit = rand(Gamma(hp_lambda[1], 1/100))  # Match R: scale = 1/100
         alphaStarInit = rand(Gamma(1.0, 1.0))
-        betaInit = rand(Gamma(hp_beta[1], 1/hp_beta[2]))
+        betaInit = rand(Gamma(hp_beta[1], 1/100))  # Match R: scale = 1/100
         qInit = rand(Beta(hp_q[1], hp_q[2]))
         tauInit = rand(Gamma(hp_tau[1], 1/hp_tau[2]))
-        a2Init = rand(Gamma(hp_a2[1], 1/hp_a2[2]))
-        b2Init = rand(Gamma(hp_b2[1], 1/hp_b2[2]))
-        c1Init = rand(Gamma(hp_c1[1], 1/hp_c1[2]))
+        a2Init = rand(Gamma(hp_a2[1], 1/100))  # Match R: scale = 1/100
+        b2Init = rand(Gamma(hp_b2[1], 1/100))  # Match R: scale = 1/100
+        c1Init = rand(Gamma(hp_c1[1], 1/100))  # Match R: scale = 1/100
         
-        for i_nu in 1:numNuTimes
-            samp_nuInit = rand(Dirichlet(hp_nu_NumVec))
-            nuEInit[i_nu] = samp_nuInit[2]
-            nuIInit[i_nu] = samp_nuInit[3]
-        end
+        # Match script: generate all nu parameters at once
+        nuVecInit = rand(Dirichlet([8, 1, 1]), numNuTimes)
+        nuEInit = nuVecInit[2, :]  # Extract row 2
+        nuIInit = nuVecInit[3, :]  # Extract row 3
         
         xiInit = Int(round(rand(Normal(hp_xi[1], hp_xi[2]))))
         
@@ -243,19 +262,11 @@ function MCMCiFFBS_(N,
             end
         end
         
-        for iTest in 1:numTests
-            thetasInit[iTest] = rand(Beta(hp_theta[1], hp_theta[2]))
-        end
-        for iTest in 1:numTests
-            rhosInit[iTest] = rand(Beta(hp_rho[1], hp_rho[2]))
-        end
-        for iTest in 1:numTests
-            phisInit[iTest] = rand(Beta(hp_phi[1], hp_phi[2]))
-        end
-        
-        for s in 1:numSeasons
-            etasInit[s] = rand(Beta(hp_eta[1], hp_eta[2]))
-        end
+        # Match script: use Uniform distributions for test parameters
+        thetasInit = rand(Uniform(0.5, 1), numTests)
+        rhosInit = rand(Uniform(0.2, 0.8), numTests)
+        phisInit = rand(Uniform(0.7, 1), numTests)
+        etasInit = rand(Beta(hp_eta[1], hp_eta[2]), numSeasons)
     end
     
     nPars = Int64(nParsNotGibbs + 3*numTests + numSeasons)
@@ -464,8 +475,8 @@ function MCMCiFFBS_(N,
     
     # Start MCMC iterations -------------------------------------------
     for iter in 1:N
-        if iter > 0 && (iter+1) % 100 == 0
-            println("iter: $(iter+1) out of N=$N")
+        if iter > 0 && (iter) % 100 == 0
+            println("iter: $(iter) out of N=$N")
         end
         
         lambda = exp(pars[G+1])
@@ -642,7 +653,7 @@ function MCMCiFFBS_(N,
                         hp_lambda, hp_beta, hp_q, hp_tau, hp_a2, hp_b2, hp_c1, k, K)
             
         elseif method == 2
-            if iter > 0 && (iter+1) % 100 == 0
+            if iter > 0 && (iter) % 100 == 0
                 ir0 = floor(iter * 0.1)
                 histLogFirstPars = zeros(Float64, iter-ir0, nParsBlock1) 
                 
@@ -714,7 +725,7 @@ function MCMCiFFBS_(N,
                                           TestTimes, hp_theta, hp_rho, epsilonsens, L)
             
         elseif method == 2
-            if iter > 0 && (iter+1) % 100 == 0
+            if iter > 0 && (iter) % 100 == 0
                 ir0 = floor(iter * 0.1)
                 histThetasRhos = zeros(Float64, iter-ir0, nParsThetasRhos)
                 for ir in 1:iter-ir0
@@ -748,14 +759,19 @@ function MCMCiFFBS_(N,
         
         # Updating Brock changepoint -----------
         # Adapting proposal variance (0.44 acceptance rate target approach)
-        if iter > 0 && (iter+1) % 100 == 0 && count_accept_sd_xi < 3 && iter < 5000
+        if iter > 0 && (iter) % 100 == 0 && count_accept_sd_xi < 3 && iter < 5000
             out0 = out[:, G+7+1+2*numNuTimes]
-            vecSub = out0[iter-98:iter]
+            vecSub = out0[iter-99:iter]
             d = diff(vecSub)
             
             ccc = Base.count(x -> x != 0, d)
             
             acc = ccc / 99
+            
+            # Debug output
+            println("Debug: vecSub = $(vecSub)")
+            println("Debug: d = $(d)")
+            println("Debug: ccc = $ccc, acc = $acc")
             
             if acc < 0.39
                 sd_xi = 0.9 * sd_xi
@@ -771,7 +787,7 @@ function MCMCiFFBS_(N,
                 sd_xi = sd_xi_min
             end
             
-            println("iter: $(iter+1)")
+            println("iter: $(iter)")
             println("sd_xi: $sd_xi")
         end
         
@@ -832,38 +848,38 @@ function MCMCiFFBS_(N,
         
         # Store results
         for g in 1:G
-            out[iter+1, g] = exp(pars[g]) * lambda
+            out[iter, g] = exp(pars[g]) * lambda
         end
-        out[iter+1, G+1] = lambda
-        out[iter+1, G+2] = exp(pars[G+2])
-        out[iter+1, G+3] = logistic(pars[G+3])
-        out[iter+1, G+4] = exp(pars[G+4])
-        out[iter+1, G+5] = exp(pars[G+5])
-        out[iter+1, G+6] = exp(pars[G+6])
+        out[iter, G+1] = lambda
+        out[iter, G+2] = exp(pars[G+2])
+        out[iter, G+3] = logistic(pars[G+3])
+        out[iter, G+4] = exp(pars[G+4])
+        out[iter, G+5] = exp(pars[G+5])
+        out[iter, G+6] = exp(pars[G+6])
         
         for i_nu in 1:numNuTimes
-            out[iter+1, G+7+1+i_nu] = nuEs[i_nu]
+            out[iter, G+7+1+i_nu] = nuEs[i_nu]
         end
         for i_nu in 1:numNuTimes
-            out[iter+1, G+7+1+numNuTimes+i_nu] = nuIs[i_nu]
+            out[iter, G+7+1+numNuTimes+i_nu] = nuIs[i_nu]
         end
-        out[iter+1, G+7+1+2*numNuTimes] = xi
+        out[iter, G+7+1+2*numNuTimes] = xi
         
         for iTest in 1:numTests
-            out[iter+1, nParsNotGibbs+iTest] = thetas[iTest]
+            out[iter, nParsNotGibbs+iTest] = thetas[iTest]
         end
         for iTest in 1:numTests
-            out[iter+1, nParsNotGibbs+numTests+iTest] = rhos[iTest]
+            out[iter, nParsNotGibbs+numTests+iTest] = rhos[iTest]
         end
         for iTest in 1:numTests
-            out[iter+1, nParsNotGibbs+2*numTests+iTest] = phis[iTest]
+            out[iter, nParsNotGibbs+2*numTests+iTest] = phis[iTest]
         end
         for s in 1:numSeasons
-            out[iter+1, nParsNotGibbs+3*numTests+s] = etas[s]
+            out[iter, nParsNotGibbs+3*numTests+s] = etas[s]
         end
         
         # Calculating full log-posterior
-        logPostPerIter[iter+1] = logPost_(pars, G, X, totalNumInfec, 
+        logPostPerIter[iter] = logPost_(pars, G, X, totalNumInfec, 
                                          SocGroup, totalmPerGroup,
                                          birthTimes, startSamplingPeriod, lastObsAliveTimes, capturesAfterMonit,
                                          ageMat, 
@@ -885,7 +901,7 @@ function MCMCiFFBS_(N,
         c1 = exp(pars[G+7])
         
         # Removing Jacobian terms
-        logPostPerIter[iter+1] -= (sum(pars) - pars[G+3]) + (ql - 2*log(1+exp(ql)))
+        logPostPerIter[iter] -= (sum(pars) - pars[G+3]) + (ql - 2*log(1+exp(ql)))
         
         lambda_prior = logpdf(Gamma(hp_lambda[1], 1/hp_lambda[2]), lambda)
         b_prior = logpdf(Gamma(hp_beta[1], 1/hp_beta[2]), beta)
@@ -898,22 +914,22 @@ function MCMCiFFBS_(N,
         logprior = a_prior + lambda_prior + b_prior + q_prior + tau_prior +
                    a2_prior + b2_prior + c1_prior
         
-        logLikPerIter[iter+1] = logPostPerIter[iter+1] - logprior
+        logLikPerIter[iter] = logPostPerIter[iter] - logprior
         
         # nuEs, nuIs
         nuDirichParamsPrior = hp_nu
         
         for i_nu in 1:numNuTimes
             dens_nu_post = logpdf(Dirichlet(nuDirichParamsMat[i_nu, :]), nuSEIMat[i_nu, :])
-            logPostPerIter[iter+1] += dens_nu_post
+            logPostPerIter[iter] += dens_nu_post
             
             dens_nu_prior = logpdf(Dirichlet(nuDirichParamsPrior), nuSEIMat[i_nu, :])
-            logLikPerIter[iter+1] += dens_nu_post - dens_nu_prior
+            logLikPerIter[iter] += dens_nu_post - dens_nu_prior
         end
         
         # Adding the observation process part
-        logPostPerIter[iter+1] += sumLogCorrector
-        logLikPerIter[iter+1] += sumLogCorrector
+        logPostPerIter[iter] += sumLogCorrector
+        logLikPerIter[iter] += sumLogCorrector
         
         # Adding remaining log-priors to the log-posterior
         # Brock changepoint prior
@@ -933,14 +949,14 @@ function MCMCiFFBS_(N,
             etasLogPrior += logpdf(Beta(hp_eta[1], hp_eta[2]), etas[s])
         end
         
-        logPostPerIter[iter+1] += xiLogPrior + thetasLogPrior + rhosLogPrior + phisLogPrior + etasLogPrior
+        logPostPerIter[iter] += xiLogPrior + thetasLogPrior + rhosLogPrior + phisLogPrior + etasLogPrior
         
         # Saving nInf, nSus, nTot, nSusTested, nExpTested, nInfTested
         g_i_tt = 0
         for tt in 1:maxt
-            nSus[tt, iter+1] = Base.count(x -> x == 0, X[:, tt])
-            nExp[tt, iter+1] = Base.count(x -> x == 3, X[:, tt])
-            nInf[tt, iter+1] = Base.count(x -> x == 1, X[:, tt])
+            nSus[tt, iter] = Base.count(x -> x == 0, X[:, tt])
+            nExp[tt, iter] = Base.count(x -> x == 3, X[:, tt])
+            nInf[tt, iter] = Base.count(x -> x == 1, X[:, tt])
             
             for i in 1:m
                 g_i_tt = SocGroup[i, tt]
@@ -1065,15 +1081,15 @@ function MCMCiFFBS_(N,
         end
         
         # Saving temporary MCMC results in files
-        if (iter+1) % blockSize == 0
+        if (iter) % blockSize == 0
             # File save notification removed
             
             # Save results using JLD2 or similar serialization
             # Note: In Julia, you might want to use JLD2.jl or BSON.jl for saving
             # This is a placeholder for the actual saving logic
             
-            numFrom = string(iter+1-blockSize+1)
-            numTo = string(iter+1)
+            numFrom = string(iter-blockSize+1)
+            numTo = string(iter)
             block_ = "Iters_from" * numFrom * "to" * numTo * "/"
             
             # Create directory if it doesn't exist
@@ -1088,7 +1104,7 @@ function MCMCiFFBS_(N,
         
         iterSub += 1
         
-        if (iter+1) % blockSize == 0
+        if (iter) % blockSize == 0
             iterSub = 0
             
             nSusTested .= 0
@@ -1096,9 +1112,9 @@ function MCMCiFFBS_(N,
             nInfTested .= 0
             
             for g in 1:G
-                nExpTestedPerGroup[g] .= zerosCube
-                nInfTestedPerGroup[g] .= zerosCube
-                nSusTestedPerGroup[g] .= zerosCube
+                nExpTestedPerGroup[g] .= 0
+                nInfTestedPerGroup[g] .= 0
+                nSusTestedPerGroup[g] .= 0
             end
             
             nSusByGroup .= 0
@@ -1115,11 +1131,3 @@ function MCMCiFFBS_(N,
     return out
 end
 
-# Helper functions that need to be implemented or imported:
-# These would typically be in separate files or modules
-
-# Mathematical helper functions
-logit(x) = log(x / (1 - x))
-logistic(x) = 1 / (1 + exp(-x))
-
-# safe_log1mexp is defined in dimension_corrections.jl

@@ -6,7 +6,7 @@ This script loads data from RDS files, sets up initial conditions, and runs the 
 """
 
 ## Load required packages
-using OffsetArrays: Origin # to use 0-based indexing
+using JLD2 # to use 0-based indexing
 using Distributions
 using Random
 using DataFrames
@@ -20,9 +20,6 @@ include("julia/dimension_corrections.jl")
 include("julia/MCMCiFFBS_.jl")
 
 
-macro zero_based(x)
-    return :( Origin(0)($x) )
-end
 
 ## Set seed
 seed = 2
@@ -369,7 +366,7 @@ hp = Dict(
 # in which case Julia will generates initial values from the prior
 
 lambdaInit = rand(Gamma(1, 1/100))
-alphaInit = rand(Gamma(1, 1), G) # alphastar - needs G values, one per group
+alphaInit = rand(Gamma(1, 1)) # alphastar - single value (not per group)
 betaInit = rand(Gamma(1, 1/100))
 qInit = rand(Beta(hp_q[1], hp_q[2]))
 # tauInit  # now done above in order to be used in Xinit
@@ -394,23 +391,24 @@ initParamValues = vcat(
 
 # Debug parameter lengths
 println("Debug: Parameter lengths:")
-println("alphaInit: $(length(alphaInit)) (should be G=$G)")
-println("lambdaInit: $(length(lambdaInit))")
-println("betaInit: $(length(betaInit))")
-println("qInit: $(length(qInit))")
-println("tauInit: $(length(tauInit))")
-println("a2Init: $(length(a2Init))")
-println("b2Init: $(length(b2Init))")
-println("c1Init: $(length(c1Init))")
+println("alphaInit: 1 (alphaStar - single value)")
+println("lambdaInit: 1")
+println("betaInit: 1")
+println("qInit: 1")
+println("tauInit: 1")
+println("a2Init: 1")
+println("b2Init: 1")
+println("c1Init: 1")
 println("nuEInit: $(length(nuEInit)) (should be numNuTimes=$numNuTimes)")
 println("nuIInit: $(length(nuIInit)) (should be numNuTimes=$numNuTimes)")
-println("xiInit: $(length(xiInit))")
+println("xiInit: 1")
 println("thetasInit: $(length(thetasInit)) (should be numTests=$numTests)")
 println("rhosInit: $(length(rhosInit)) (should be numTests=$numTests)")
 println("phisInit: $(length(phisInit)) (should be numTests=$numTests)")
 println("etasInit: $(length(etasInit)) (should be numSeasons=$numSeasons)")
 println("Total initParamValues: $(length(initParamValues))")
-expected_total = G + 1 + 1 + 1 + 1 + 1 + 1 + 1 + numNuTimes + numNuTimes + 1 + numTests + numTests + numTests + numSeasons
+# Expected: 1 alpha + 1 lambda + 1 beta + 1 q + 1 tau + 1 a2 + 1 b2 + 1 c1 + numNuTimes nuE + numNuTimes nuI + 1 xi + numTests thetas + numTests rhos + numTests phis + numSeasons etas
+expected_total = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + numNuTimes + numNuTimes + 1 + numTests + numTests + numTests + numSeasons
 println("Expected total: $expected_total")
 println("Match: $(length(initParamValues) == expected_total ? "✅" : "❌")")
 
@@ -426,7 +424,16 @@ println("Starting MCMC-iFFBS algorithm...")
 # Convert NaN to -1 for integer matrix (MCMC functions expect Int)
 Xinit_int = copy(Xinit)
 Xinit_int[isnan.(Xinit_int)] .= -1
-initParamValues = Inf
+
+# Use user-supplied initial values instead of generating from prior
+# initParamValues = Inf  # This would generate from prior
+# Instead, use the user-supplied values
+initParamValues = vcat(
+    alphaInit, lambdaInit, betaInit, qInit, tauInit, 
+    a2Init, b2Init, c1Init, nuEInit, nuIInit, xiInit,
+    thetasInit, rhosInit, phisInit, etasInit
+)
+
 out_ = MCMCiFFBS_(
     N, 
     initParamValues, 

@@ -1,0 +1,601 @@
+---
+title: "MCMC-iFFBS Algorithm for Badger TB Transmission"
+subtitle: "Step-by-Step Explanation"
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    theme: cosmo
+---
+
+# Overview
+
+This document explains the **MCMC with individual Forward-Filtering Backward-Sampling (MCMC-iFFBS)** algorithm used for inferring bovine tuberculosis (bTB) transmission dynamics in European badger populations.
+
+## What Problem Does This Solve?
+
+The algorithm addresses the challenge of inferring:
+
+1. **Latent infection states** for each individual badger over time (Susceptible, Exposed, Infectious, or Dead)
+2. **Transmission parameters** (infection rates, disease progression rates, etc.)
+3. **Test accuracy parameters** (sensitivity, specificity)
+
+Given:
+- Imperfect diagnostic test results
+- Capture-recapture data
+- Social group structure
+- Individual life histories
+
+## Algorithm Type
+
+This is a **Bayesian data augmentation** approach using Markov Chain Monte Carlo (MCMC) that:
+- Treats the unobserved infection states as missing data
+- Jointly samples latent states and parameters
+- Uses forward-filtering backward-sampling (FFBS) for efficient state inference
+
+---
+
+# Main Algorithm Structure
+
+The algorithm is implemented in `julia/MCMCiFFBS_.jl`. Here's the high-level structure:
+
+```julia
+function MCMCiFFBS_(N, initParamValues, Xinit, TestMat, CaptHist, 
+                    birthTimes, startSamplingPeriod, endSamplingPeriod, 
+                    nuTimes, CaptEffort, capturesAfterMonit, ...)
+    # N = number of MCMC iterations
+    # initParamValues = initial parameter values
+    # Xinit = initial infection states
+    # TestMat = diagnostic test results
+    # CaptHist = capture history
+    # ... other data and hyperparameters
+```
+
+## MCMC Iterations
+
+The algorithm runs for `N` iterations (typically 50,000-100,000), where each iteration consists of:
+
+1. **Update infection states** (X) for all individuals using iFFBS
+2. **Update transmission parameters** (α, λ, β, q)
+3. **Update disease progression parameters** (τ, Gompertz parameters)
+4. **Update test accuracy parameters** (θ, ρ, φ)
+5. **Update capture probability parameters** (η)
+6. **Update changepoint** (ξ) for test availability
+
+---
+
+# Step 1: Individual Forward-Filtering Backward-Sampling (iFFBS)
+
+## What is iFFBS?
+
+The **individual Forward-Filtering Backward-Sampling** algorithm samples the latent infection trajectory for each individual given:
+- Current parameter values
+- Test results for that individual
+- Infection pressure from the population
+
+## Implementation
+
+The iFFBS is implemented in `julia/iFFBS.jl`:
+
+```julia
+function iFFBS(Xt, pars, likTermst, testst, t0, tD, 
+               nuEprobs, nuIprobs, nI, nE, nSEI, ...)
+    # Xt = current state trajectory
+    # pars = current parameters (α, λ, β, τ)
+    # likTermst = likelihood contribution terms
+    # testst = test results for this individual
+    # t0 = start of monitoring
+    # tD = death/censoring time
+    # nuEprobs, nuIprobs = initial state probabilities
+    # nI, nE, nSEI = population infection levels
+```
+
+### Forward-Filtering Phase
+
+**Purpose**: Compute filtered probabilities of being in each state at each time, given all data up to that time.
+
+For each time point `t` from `t0` to `tD`:
+
+1. **Predict** the state distribution at time `t` based on state at `t-1`:
+   - Susceptible (S) can stay S or become Exposed (E)
+   - Exposed (E) can stay E or become Infectious (I)
+   - Infectious (I) stays I
+   - Dead (D) stays D
+
+2. **Update** predictions using test data at time `t`:
+   - If test is positive: increase probability of I and E states
+   - If test is negative: increase probability of S state
+   - Account for test sensitivity and specificity
+
+3. **Normalize** to get filtered probabilities
+
+### Backward-Sampling Phase
+
+**Purpose**: Sample a complete state trajectory working backwards from the final time.
+
+Starting from time `tD` and working backwards to `t0`:
+
+1. Sample state at time `t` given:
+   - Filtered probabilities at time `t`
+   - Sampled state at time `t+1`
+   - Transition constraints (e.g., can't go from I back to S)
+
+2. This ensures the sampled trajectory is consistent with:
+   - The observed test data
+   - The disease progression constraints
+   - The transmission dynamics
+
+---
+
+# Step 2: Update Transmission Parameters
+
+## Parameters
+
+- **α** (alpha): Within-group transmission rate
+  - αⱼ = α* × λʲ for group j
+  - α* (alphaStar): baseline transmission rate
+  - λ (lambda): group effect multiplier
+  
+- **β** (beta): Between-group transmission rate
+
+- **q**: Proportion of transmission from within-group contacts
+
+## Force of Infection
+
+For individual `i` in group `g` at time `t`, the force of infection is:
+
+```
+λᵢ(t) = q × αg × Iᵍ(t)/Nᵍ(t) + (1-q) × β × I(t)/N(t)
+```
+
+Where:
+- Iᵍ(t) = number infectious in group g
+- Nᵍ(t) = total alive in group g  
+- I(t) = total infectious in population
+- N(t) = total alive in population
+
+## Metropolis-Hastings Update
+
+The transmission parameters are updated using Metropolis-Hastings:
+
+1. **Propose** new values from a proposal distribution
+2. **Calculate** the acceptance probability based on:
+   - Likelihood of infection times given new parameters
+   - Prior distributions
+3. **Accept or reject** the proposal
+4. **Adapt** the proposal variance for efficient mixing
+
+This is implemented in the main MCMC function with adaptive tuning.
+
+---
+
+# Step 3: Update Disease Progression Parameters
+
+## Average Latent Period (τ)
+
+**τ** (tau): Average time from Exposed (E) to Infectious (I)
+
+- Modeled as exponential distribution
+- Updated using Metropolis-Hastings
+- Constrained to be positive
+
+## Gompertz Mortality Parameters
+
+The Gompertz model describes age-dependent mortality:
+
+```
+h(a) = exp(a2 + b2 × a) + c1
+```
+
+Where:
+- **a2**: baseline mortality (log scale)
+- **b2**: rate of mortality increase with age
+- **c1**: additional mortality from infection
+- `a`: age of individual
+
+These parameters are updated using Metropolis-Hastings with:
+- Gamma priors
+- Adaptive proposal distributions
+- Constraints ensuring biological plausibility
+
+---
+
+# Step 4: Update Test Accuracy Parameters
+
+For each diagnostic test `k`, we estimate:
+
+## Sensitivity (θ)
+
+**θₖ** (theta): Probability that test k is positive given individual is Infectious
+
+```
+P(Test k = 1 | State = I) = θₖ
+```
+
+## Rho (ρ)
+
+**ρₖ** (rho): Probability that test k is positive given individual is Exposed
+
+```
+P(Test k = 1 | State = E) = ρₖ × θₖ
+```
+
+Where ρₖ represents the relative detectability of Exposed vs Infectious individuals.
+
+## Specificity (φ)
+
+**φₖ** (phi): Probability that test k is negative given individual is Susceptible
+
+```
+P(Test k = 0 | State = S) = φₖ
+```
+
+Equivalently, false positive rate = 1 - φₖ
+
+## Updating Process
+
+These parameters are updated using **Gibbs sampling** when sufficient data is available:
+
+```julia
+# For each test k
+if nInfTested[k] > 0
+    # Update theta (sensitivity)
+    successes = count of positive tests in I state
+    failures = count of negative tests in I state
+    theta[k] ~ Beta(prior_a + successes, prior_b + failures)
+end
+```
+
+---
+
+# Step 5: Update Initial State Probabilities
+
+At specified time points `nuTimes`, we estimate the probability that newly infected individuals start in:
+
+- **Susceptible** (S): probability 1 - νₑ - νᵢ
+- **Exposed** (E): probability νₑ
+- **Infectious** (I): probability νᵢ
+
+These are updated using a **Dirichlet distribution**:
+
+```julia
+# For each time period
+nuVec = [nS_to_S, nS_to_E, nS_to_I]  # counts of transitions
+nu ~ Dirichlet(nu_prior + nuVec)
+nuE = nu[2]
+nuI = nu[3]
+```
+
+This allows the model to capture heterogeneity in disease progression at different time periods.
+
+---
+
+# Step 6: Update Capture Probabilities
+
+Capture probabilities vary by season to account for seasonal trapping effort.
+
+## Seasonal Effects (η)
+
+**ηₛ** (eta): Capture probability in season s
+
+For individual `i` captured at time `t` in season `s`:
+
+```
+P(Captured at t) = ηₛ × (capture effort at t)
+```
+
+These are updated using Gibbs sampling:
+
+```julia
+for season in 1:numSeasons
+    captures_in_season = count individuals captured in season
+    opportunities_in_season = total capture opportunities in season
+    
+    eta[season] ~ Beta(prior_a + captures_in_season,
+                       prior_b + opportunities_in_season - captures_in_season)
+end
+```
+
+---
+
+# Step 7: Update Brock Test Changepoint (ξ)
+
+The **Brock test** (a specific diagnostic) became available partway through the study.
+
+**ξ** (xi): Time point when Brock test became available
+
+This is updated using Metropolis-Hastings with a discrete proposal:
+
+1. **Propose** ξ' from nearby time points
+2. **Calculate** likelihood based on:
+   - Consistency with observed Brock test results
+   - No Brock results before ξ'
+   - Brock results available after ξ'
+3. **Accept or reject** based on likelihood ratio and prior
+
+---
+
+# Dimension Corrections
+
+The algorithm uses **dimension corrections** to ensure valid MCMC moves when the parameter space changes.
+
+This is implemented in `julia/dimension_corrections.jl`:
+
+## Why Needed?
+
+When updating infection times or states, the dimension of the latent variable space can change (e.g., adding or removing an infection event). Standard MCMC requires:
+
+```
+P(accept) = min(1, likelihood_ratio × prior_ratio × jacobian)
+```
+
+The **jacobian** (dimension correction) accounts for the change in dimensionality.
+
+## Implementation
+
+```julia
+function dimensionCorrections(...)
+    # Calculate correction terms for:
+    # - Adding/removing infections
+    # - Changing infection times
+    # - Changing progression times (E to I)
+    
+    # Returns log of the Jacobian determinant
+end
+```
+
+This ensures the MCMC sampler has the correct stationary distribution.
+
+---
+
+# Data Structures
+
+## State Encoding
+
+Individual states are encoded as integers:
+
+- **0**: Susceptible (S)
+- **1**: Infectious (I)
+- **3**: Exposed (E)
+- **9**: Dead or right-censored
+- **-1**: Not yet born or outside monitoring period (coded as NA)
+
+## Key Arrays
+
+### State Matrix (X)
+```julia
+X = Matrix{Int}(m, maxt)  # m individuals × maxt time points
+X[i, t] = state of individual i at time t
+```
+
+### Test Matrix (TestMat)
+```julia
+TestMat = Matrix{Float64}(n_tests, numTests + 2)
+# Each row: [individual_id, time, test1_result, test2_result, ...]
+# test_result: 1 = positive, 0 = negative, NaN = not tested
+```
+
+### Capture History (CaptHist)
+```julia
+CaptHist = Matrix{Int}(m, maxt)
+CaptHist[i, t] = 1 if individual i captured at time t, 0 otherwise
+```
+
+---
+
+# Prior Distributions
+
+The algorithm uses the following prior distributions:
+
+## Transmission Parameters
+- α* ~ Gamma(1, 1)
+- λ ~ Gamma(1, 100) [informative: small group effects]
+- β ~ Gamma(1, 100) [informative: low between-group transmission]
+- q ~ Beta(hp_q[1], hp_q[2]) [typically Beta(8, 2) favoring within-group]
+
+## Disease Progression
+- τ ~ Gamma(hp_τ[1], hp_τ[2])
+- a2, b2, c1 ~ Gamma priors for Gompertz parameters
+
+## Test Accuracy
+- θₖ ~ Beta(hp_θ[1], hp_θ[2]) [typically favoring high sensitivity]
+- ρₖ ~ Beta(hp_ρ[1], hp_ρ[2])
+- φₖ ~ Beta(hp_φ[1], hp_φ[2]) [typically favoring high specificity]
+
+## Initial States
+- (νₛ, νₑ, νᵢ) ~ Dirichlet(8, 1, 1) [favoring S initial state]
+
+## Capture Probabilities
+- ηₛ ~ Beta(hp_η[1], hp_η[2])
+
+---
+
+# Output and Diagnostics
+
+## Saved Output
+
+For each MCMC iteration, the algorithm saves:
+
+1. **Parameter values**: α*, λ, β, q, τ, a2, b2, c1, θ, ρ, φ, η, ν, ξ
+2. **Log-posterior**: Log of posterior probability
+3. **Log-likelihood**: Log of data likelihood
+4. **Population summaries**: 
+   - Number susceptible at each time
+   - Number exposed at each time
+   - Number infectious at each time
+
+## Convergence Diagnostics
+
+After running the MCMC:
+
+1. **Trace plots**: Visual inspection of parameter trajectories
+2. **Acceptance rates**: Should be 20-40% for Metropolis-Hastings updates
+3. **Effective sample size**: Measure of MCMC efficiency
+4. **Gelman-Rubin statistic**: Compare multiple chains (if applicable)
+
+## Post-Processing
+
+```julia
+# Typical workflow after MCMC
+results_df = DataFrame(out_, :auto)
+rename!(results_df, parNames)
+
+# Discard burn-in (e.g., first 50%)
+burnin = div(N, 2)
+posterior_samples = results_df[burnin:end, :]
+
+# Calculate posterior summaries
+using Statistics
+posterior_mean = mean.(eachcol(posterior_samples))
+posterior_median = median.(eachcol(posterior_samples))
+posterior_quantiles = quantile.(eachcol(posterior_samples), [0.025, 0.975])
+```
+
+---
+
+# Key Functions Reference
+
+## Main Algorithm
+- `MCMCiFFBS_()` in `julia/MCMCiFFBS_.jl`: Main MCMC loop
+
+## State Updates
+- `iFFBS()` in `julia/iFFBS.jl`: Individual forward-filtering backward-sampling
+- `dimensionCorrections()` in `julia/dimension_corrections.jl`: Jacobian calculations
+
+## Utility Functions
+- `logit()` and `invlogit()`: Logistic transformations
+- `logisticD()`: Logistic function (misnamed - not a derivative)
+
+## Setup
+- `runmodel_RDS.jl`: Main script to run the model
+  - Loads data
+  - Sets hyperparameters
+  - Initializes states
+  - Calls MCMC function
+  - Saves results
+
+---
+
+# Computational Considerations
+
+## Adaptive Tuning
+
+The algorithm uses **adaptive Metropolis-Hastings** for efficient sampling:
+
+```julia
+# After each update
+acceptance_rate = n_accepted / n_proposals
+
+# Adjust proposal variance
+if acceptance_rate > 0.44  # too high
+    proposal_sd *= 1.1  # increase variance
+elseif acceptance_rate < 0.23  # too low
+    proposal_sd *= 0.9  # decrease variance
+end
+```
+
+Target acceptance rate: 23-44% (optimal for Metropolis-Hastings)
+
+## Block Updates
+
+Some parameters are updated in blocks for efficiency:
+- All transmission parameters (α, λ, β, q) updated together
+- All test parameters for each test updated together
+- Gompertz parameters updated together
+
+## Blocking Scheme
+
+The algorithm can save intermediate results every `blockSize` iterations to:
+- Monitor progress
+- Recover from crashes
+- Reduce memory usage
+
+---
+
+# Mathematical Details
+
+## Likelihood Contribution
+
+For individual `i`, the likelihood contribution at time `t` is:
+
+```
+L(X[i,t] | data) = P(tests | X[i,t]) × P(capture | X[i,t]) × P(X[i,t] | X[i,t-1])
+```
+
+Where:
+- Test likelihood depends on θ, ρ, φ
+- Capture likelihood depends on η
+- Transition probability depends on α, β, q, τ
+
+## Posterior Distribution
+
+The full posterior is:
+
+```
+P(X, θ | data) ∝ L(data | X, θ) × P(X | θ) × P(θ)
+```
+
+Where:
+- X = all latent states for all individuals
+- θ = all parameters
+- P(θ) = prior distributions
+
+The MCMC algorithm samples from this posterior by alternating between:
+- Sampling X given θ (using iFFBS)
+- Sampling θ given X (using Metropolis-Hastings or Gibbs)
+
+---
+
+# Example Usage
+
+```julia
+# Load data and packages
+include("runmodel_RDS.jl")
+
+# Key parameters to set:
+N = 100000  # Number of MCMC iterations
+blockSize = 1000  # Save every 1000 iterations
+
+# Hyperparameters for priors
+hp_lambda = [1.0, 100.0]  # Gamma prior for λ
+hp_beta = [1.0, 100.0]    # Gamma prior for β
+hp_q = [8.0, 2.0]         # Beta prior for q
+hp_tau = [2.0, 0.1]       # Gamma prior for τ
+# ... set other hyperparameters
+
+# Run MCMC
+out_ = MCMCiFFBS_(
+    N, 
+    initParamValues,  # or Inf to generate from prior
+    Matrix(Xinit_int), 
+    Matrix(TestMat_),
+    Matrix(CaptHist), 
+    Vector(birthTimes),
+    # ... other arguments
+)
+
+# Process results
+results_df = DataFrame(out_, :auto)
+rename!(results_df, parNames)
+
+# Save to file
+using CSV
+CSV.write("mcmc_results.csv", results_df)
+```
+
+---
+
+# Further Reading
+
+For detailed mathematical derivations and model specification, see:
+
+1. The original paper (pcbi.1012592.s001.pdf)
+2. Comments in the source code files
+3. R/C++ implementation in `BIID/src/MCMCiFFBS_.cpp`
+
+For questions about specific implementation details, consult:
+- `julia/MCMCiFFBS_.jl` - main algorithm
+- `julia/iFFBS.jl` - state sampling
+- `julia/dimension_corrections.jl` - Jacobian calculations
+- `runmodel_RDS.jl` - complete workflow example

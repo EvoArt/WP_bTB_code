@@ -1114,3 +1114,111 @@ function TestMatAsFieldProposal(TestFieldProposal, TestField, TestTimes, xi, xiC
     end
 end
 
+"""
+    logPostXi(xiMin, xiMax, xi, hp_xi, TestField_, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
+
+Compute log posterior for xi (Brock changepoint) parameter.
+Ported from C++ logPostXi.cpp
+"""
+function logPostXi(xiMin, xiMax, xi, hp_xi, TestField_, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
+    
+    m = size(X, 1)
+    numBrockTests = 2
+    idxTests = 1:numBrockTests  # Julia is 1-based
+    
+    logLik = 0.0
+    
+    for jj in 1:m  # Julia is 1-based, C++ was 0-based
+        id = jj  # C++: id = jj+1L
+        TestMat_i = TestField_[jj]
+        TestTimes_i = TestTimes[jj]
+        
+        t0 = startSamplingPeriod[jj] - 1  # C++: startSamplingPeriod[jj] - 1L
+        maxt_i = endSamplingPeriod[jj] - t0
+        
+        for tt in 0:maxt_i-1  # C++: tt=0; tt<maxt_i; tt++
+            if (tt + t0 + 1 >= xiMin) && (tt + t0 + 1 < xiMax)
+                # Find rows where TestTimes_i - t0 == tt+1
+                rows = findall(x -> x - t0 == tt + 1, TestTimes_i)
+                
+                if length(rows) > 0
+                    TestMat_i_tt_allTests = TestMat_i[rows, :]
+                    TestMat_i_tt = TestMat_i_tt_allTests[:, idxTests]  # Brock test columns
+                    
+                    for (ir_idx, ir) in enumerate(rows)
+                        Tests_ir = TestMat_i_tt[ir_idx, :]
+                        valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                        
+                        for ic in valid_tests
+                            i = ic  # Julia is 1-based
+                            
+                            if X[id, tt + t0 + 1] == 0  # Susceptible (C++: X(id-1,tt+t0)==0L)
+                                test_result = Tests_ir[i]
+                                logLik += log((1 - phis[i])^test_result * 
+                                            phis[i]^(1 - test_result))
+                            elseif X[id, tt + t0 + 1] == 3  # Exposed (C++: X(id-1,tt+t0)==3L)
+                                test_result = Tests_ir[i]
+                                logLik += log((thetas[i] * rhos[i])^test_result * 
+                                            (1 - thetas[i] * rhos[i])^(1 - test_result))
+                            elseif X[id, tt + t0 + 1] == 1  # Infectious (C++: X(id-1,tt+t0)==1L)
+                                test_result = Tests_ir[i]
+                                logLik += log(thetas[i]^test_result * 
+                                            (1 - thetas[i])^(1 - test_result))
+                            end
+                        end
+                    end
+                end
+            end  # end if
+        end
+    end
+    
+    # Log prior for xi (normal distribution)
+    xiLogPrior = logpdf(Normal(hp_xi[1], hp_xi[2]), xi)
+    
+    logPost = logLik + xiLogPrior
+    return logPost
+end
+
+"""
+    RWMH_xi(can, cur, hp_xi, TestFieldProposal, TestField, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
+
+Random walk Metropolis-Hastings update for xi (Brock changepoint) parameter.
+Ported from C++ RWMH_xi.cpp
+"""
+function RWMH_xi(can, cur, hp_xi, TestFieldProposal, TestField, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
+    
+    # Range where changes in xi modify likelihood
+    if can < cur
+        xiMin = can
+        xiMax = cur
+    else
+        xiMin = cur
+        xiMax = can
+    end
+    
+    logpostDiff = logPostXi(xiMin, xiMax, can, hp_xi, TestFieldProposal, TestTimes, 
+                           thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod) - 
+                  logPostXi(xiMin, xiMax, cur, hp_xi, TestField, TestTimes,  
+                           thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
+    
+    prob = exp(logpostDiff)
+    alpha = min(1.0, prob)
+    u = rand()
+    
+    if u < alpha
+        out = can
+        # Update TestField to be the proposal
+        for i in 1:length(TestField)
+            TestField[i] = copy(TestFieldProposal[i])
+        end
+    else
+        out = cur
+        # Revert TestFieldProposal to be TestField
+        for i in 1:length(TestFieldProposal)
+            TestFieldProposal[i] = copy(TestField[i])
+        end
+    end
+    
+    return out
+end
+
