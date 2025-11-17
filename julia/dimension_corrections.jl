@@ -298,7 +298,7 @@ function CheckSensSpec__CORRECTED(numTests, TestField, TestTimes, X)
             Tests_i = TestField[i]               # matrix (individual × tests)
             testTimes_i = TestTimes[i]     # convert to 0-based like C++
             X_i = X[i, :]                        # row vector
-            status = X_i[testTimes_i ]       # back to 1-based
+            status = X_i[testTimes_i]       # back to 1-based
 
             tests_i = Tests_i[:, iTest]          # column of tests for this test type
 
@@ -907,7 +907,7 @@ function logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeri
             
             if n_row > 0
                 #### Whay allocate whole new array?
-                TestMat_i_tt = TestMat_i[rows[1:n_row], :]
+                TestMat_i_tt = @views(TestMat_i[rows[1:n_row], :])
                 
                 for ir_idx in 1:n_row
                     Tests_ir = TestMat_i_tt[ir_idx, :]
@@ -1089,24 +1089,25 @@ function gradThetasRhos2(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
                         i = valid_tests[ic]  # Julia is 1-based
                         
                         if X[id, tt + t0 + 1] == 3.0  # Exposed state (C++: X(id-1,tt+t0)==3L)
-                            expThetaTilde = exp(logit(thetas[i]))
-                            expRhoTilde = exp(logit(rhos[i]))
-                            test_result = Tests_ir[i]
+                            expThetaTilde = exp(logit(thetas[col]))
+                            expRhoTilde = exp(logit(rhos[col]))
+                            #test_result = Tests_ir[i]
+                            test_result = TestMat_i_tt[i,col]
                             
                             # Derivatives wrt theta
-                            derivloglik[i] += test_result * (1 - thetas[i]) + 
-                                (1 - test_result) * (expThetaTilde / (1.0 + expThetaTilde + expRhoTilde) - thetas[i])
+                            derivloglik[i] += test_result * (1 - thetas[col]) + 
+                                (1 - test_result) * (expThetaTilde / (1.0 + expThetaTilde + expRhoTilde) - thetas[col])
                             
                             # Derivatives wrt rho
-                            derivloglik[i + numTests] += test_result * (1.0 - rhos[i]) + 
-                                (1 - test_result) * (expRhoTilde / (1.0 + expThetaTilde + expRhoTilde) - rhos[i])
+                            derivloglik[col + numTests] += test_result * (1.0 - rhos[col]) + 
+                                (1 - test_result) * (expRhoTilde / (1.0 + expThetaTilde + expRhoTilde) - rhos[col])
                             
                         elseif X[id, tt + t0 + 1] == 1.0  # Infectious state (C++: X(id-1,tt+t0)==1L)
-                            test_result = Tests_ir[i]
+                            test_result = TestMat_i_tt[i,col]
                             
                             # Derivatives wrt theta
-                            derivloglik[i] += test_result * (1.0 - thetas[i]) - 
-                                (1 - test_result) * thetas[i]
+                            derivloglik[i] += test_result * (1.0 - thetas[col]) - 
+                                (1 - test_result) * thetas[col]
                         end
                     end
                 end

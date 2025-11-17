@@ -67,6 +67,10 @@ function iFFBS_(alpha_js,
   nuE_i = 0.0
   nuI_i = 0.0
   
+  # Pre-compute Erlang CDF to avoid repeated allocation in backward sampling loop
+  erlang_dist = Erlang(k, tau/k)
+  erlang_cdf_1 = cdf(erlang_dist, 1)
+  
   if birthTime < startTime   # born before monitoring started
                 # Is min the best function to use here?
     nuIdx = findfirst(nuTimes .== startTime)
@@ -325,8 +329,9 @@ function iFFBS_(alpha_js,
       p01 = (1-prDeath)*(1 - exp(-a - b*inf_mgt))
                 # Are these type conversions costly?
                 # Does the compiled code calculate tau/k every iter?
-      p11 = (1-prDeath)*(1.0 - cdf(Erlang(k, tau/k), 1))
-      p12 = (1-prDeath)*cdf(Erlang(k, tau/k), 1)
+                # this seems like v obious speed up.
+      p11 = (1-prDeath)*(1.0 - erlang_cdf_1)
+      p12 = (1-prDeath)*erlang_cdf_1
       p22 = (1-prDeath)
       ##println("pars")
       ##println("-----")
