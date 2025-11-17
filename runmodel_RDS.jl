@@ -13,8 +13,8 @@ using DataFrames
 using RData
 using Statistics
 using CSV
+using UnicodePlots
 # Print indexing warning
-print_indexing_warning()
 include("julia/iFFBS.jl")
 include("julia/dimension_corrections.jl")
 include("julia/MCMCiFFBS_.jl")
@@ -213,7 +213,7 @@ end
 # For matrices, we need to add a new column for Brock2
 # Insert new column after column 3 (index 3 in 1-based)
 new_col = fill(NaN, size(TestMat, 1))
-TestMat = hcat(TestMat[:, 1:3], new_col, TestMat[:, 4:end])
+TestMat = hcat(TestMat[:, 1:4], new_col, TestMat[:, 5:end])
 testNames = ["Brock1", "Brock2", testNames[2:end]]
 numTests = size(TestMat, 2) - 3  # Update numTests after adding Brock2 column
 
@@ -224,8 +224,8 @@ changePointBrock = xiInit
 
 ## This will be the initial TestMat
 for irow in 1:size(TestMat, 1)
-    if TestMat[irow, 2] >= changePointBrock  # column 2 is time in matrix (1-based)
-        if !isnan(TestMat[irow, 4]) && TestMat[irow, 4] != 0  # column 4 is Brock1 (1-based)
+    if TestMat[irow, 1] >= changePointBrock  
+        if !isnan(TestMat[irow, 4])  # column 4 is Brock1 (1-based)
             TestMat[irow, 5] = TestMat[irow, 4]  # Move Brock1 to Brock2
             TestMat[irow, 4] = NaN  # Set Brock1 to NaN
         end
@@ -235,8 +235,8 @@ end
 # put NAs in test results outside of the monitoring period
 count = 0
 for irow in 1:size(TestMat, 1)
-    id_val = TestMat[irow, 1]  # column 1 is idNumber (1-based)
-    time_val = TestMat[irow, 2]  # column 2 is time (1-based)
+    id_val = TestMat[irow, 2]  # column 1 is idNumber (1-based)
+    time_val = TestMat[irow, 1]  # column 2 is time (1-based)
     
     # Handle NaN values - skip rows with missing id or time
     if isnan(id_val) || isnan(time_val)
@@ -435,7 +435,7 @@ initParamValues = vcat(
 )
 
 out_ = MCMCiFFBS_(
-    N, 
+    10, 
     initParamValues, 
     Matrix(Xinit_int), 
     Matrix(TestMat_),

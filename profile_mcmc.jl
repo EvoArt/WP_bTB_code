@@ -20,7 +20,7 @@ println("PROFILING MCMC ALGORITHM")
 println("="^60)
 
 # Modify N for profiling (shorter run)
-N_profile = 500  # Run 500 iterations for profiling
+N_profile = 10  # Run 500 iterations for profiling
 blockSize_profile = 100
 
 println("Running $(N_profile) iterations for profiling...")
@@ -30,49 +30,49 @@ println("This may take a few minutes...")
 Profile.clear()
 
 # Run with profiling
-@profile begin
-    out_profile = MCMCiFFBS_(
-        N_profile,
-        initParamValues,
-        Xinit,
-        TestMat,
-        CaptHist,
-        birthTimes,
-        startSamplingPeriod,
-        endSamplingPeriod,
-        nuTimes,
-        CaptEffort,
-        capturesAfterMonit,
-        numSeasons,
-        seasonStart,
-        maxt,
-        hp_lambda,
-        hp_beta,
-        hp_q,
-        hp_tau,
-        hp_a2,
-        hp_b2,
-        hp_c1,
-        hp_nu,
-        hp_xi,
-        hp_theta,
-        hp_rho,
-        hp_phi,
-        hp_eta,
-        k,
-        K,
-        sd_xi_min,
-        method,
-        epsilon,
-        epsilonalphas,
-        epsilonbq,
-        epsilontau,
-        epsilonc1,
-        epsilonsens,
-        L,
-        path,
-        blockSize_profile
-    )
+@profview begin
+out_ = MCMCiFFBS_(
+    20, 
+    initParamValues, 
+    Matrix(Xinit_int), 
+    Matrix(TestMat_),
+    Matrix(CaptHist), 
+    Vector(birthTimes),
+    Vector(startSamplingPeriod),
+    Vector(endSamplingPeriod),
+    Vector(nuTimes),
+    Matrix(CaptEffort_),
+    Matrix(capturesAfterMonit),
+    numSeasons, 
+    startingQuarter,
+    maxt,
+    hp_lambda, 
+    hp_beta, 
+    hp_q, 
+    hp_tau, 
+    hp_a2, 
+    hp_b2, 
+    hp_c1, 
+    hp_nu, 
+    hp_xi, 
+    hp_theta, 
+    hp_rho, 
+    hp_phi, 
+    hp_eta, 
+    k, 
+    K, 
+    sd_xi_min, 
+    method, 
+    epsilon, 
+    epsilonalphas, 
+    epsilonbq, 
+    epsilontau, 
+    epsilonc1, 
+    epsilonsens,
+    L, 
+    path, 
+    blockSize
+)
 end
 
 println("\n" * "="^60)

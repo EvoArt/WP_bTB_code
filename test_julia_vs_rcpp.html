@@ -179,6 +179,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="st">suppressWarnings(library(RcppArmadillo))</span></span>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="st">library(BIID)</span></span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>┌ Warning: RCall.jl: Loading required package: MCMCpack
+│ Warning: package 'MCMCpack' was built under R version 4.5.2
+│ Loading required package: coda
+│ Warning: package 'coda' was built under R version 4.5.2
+│ Loading required package: MASS
+│ Loading required package: stats
+│ ##
+│ ## Markov Chain Monte Carlo Package (MCMCpack)
+│ ## Copyright (C) 2003-2025 Andrew D. Martin, Kevin M. Quinn, and Jong Hee Park
+│ ##
+│ ## Support provided by the U.S. National Science Foundation
+│ ## (Grants SES-0350646 and SES-0350613)
+│ ##
+└ @ RCall C:\Users\arn203\.julia\packages\RCall\GLHIY\src\io.jl:171</code></pre>
+</div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>RObject{StrSxp}
  [1] "BIID"          "MCMCpack"      "MASS"          "stats"        
@@ -191,8 +207,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="load-julia-functions" class="level2">
 <h2 class="anchored" data-anchor-id="load-julia-functions">Load Julia Functions</h2>
 <div id="10" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"📦 Loading Julia functions..."</span>)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">include</span>(<span class="st">"julia/dimension_corrections.jl"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"📦 Loading Julia functions..."</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">include</span>(<span class="st">"julia/dimension_corrections.jl"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>📦 Loading Julia functions...</code></pre>
 </div>
@@ -204,24 +220,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="helper-functions" class="level2">
 <h2 class="anchored" data-anchor-id="helper-functions">Helper Functions</h2>
 <div id="12" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">compare_scalars</span>(julia_result, r_result, name<span class="op">::</span><span class="dt">String</span>; tolerance<span class="op">=</span><span class="fl">1e-10</span>)</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"""Compare Julia and R scalar results with tolerance"""</span></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    try</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> diff <span class="op">&lt;</span> tolerance</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"✅ </span><span class="sc">$</span>name<span class="st">: PASS (diff: </span><span class="sc">$</span>diff<span class="st">)"</span>)</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="cn">true</span></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"❌ </span><span class="sc">$</span>name<span class="st">: FAIL (diff: </span><span class="sc">$</span>diff<span class="st"> exceeds tolerance </span><span class="sc">$</span>tolerance<span class="st">)"</span>)</span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"   Julia: </span><span class="sc">$</span>julia_result<span class="st">"</span>)</span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"   R: </span><span class="sc">$</span>r_result<span class="st">"</span>)</span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="cn">false</span></span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>    catch <span class="cn">e</span></span>
-<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"❌ </span><span class="sc">$</span>name<span class="st">: ERROR - </span><span class="sc">$</span>e<span class="st">"</span>)</span>
-<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="cn">false</span></span>
-<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">end</span></span>
-<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">compare_scalars</span>(julia_result, r_result, name<span class="op">::</span><span class="dt">String</span>; tolerance<span class="op">=</span><span class="fl">1e-10</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"""Compare Julia and R scalar results with tolerance"""</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    try</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> diff <span class="op">&lt;</span> tolerance</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"✅ </span><span class="sc">$</span>name<span class="st">: PASS (diff: </span><span class="sc">$</span>diff<span class="st">)"</span>)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="cn">true</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"❌ </span><span class="sc">$</span>name<span class="st">: FAIL (diff: </span><span class="sc">$</span>diff<span class="st"> exceeds tolerance </span><span class="sc">$</span>tolerance<span class="st">)"</span>)</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"   Julia: </span><span class="sc">$</span>julia_result<span class="st">"</span>)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"   R: </span><span class="sc">$</span>r_result<span class="st">"</span>)</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="cn">false</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    catch <span class="cn">e</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"❌ </span><span class="sc">$</span>name<span class="st">: ERROR - </span><span class="sc">$</span>e<span class="st">"</span>)</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="cn">false</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">end</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="1">
 <pre><code>compare_scalars (generic function with 1 method)</code></pre>
 </div>
@@ -231,48 +247,38 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="generate-test-data" class="level1">
 <h1>Generate Test Data</h1>
 <div id="14" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">🎲 Generating test data..."</span>)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">123</span>)</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Test parameters</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fl">3</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fl">10</span></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>maxt <span class="op">=</span> <span class="fl">20</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>numTests <span class="op">=</span> <span class="fl">4</span></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>numSeasons <span class="op">=</span> <span class="fl">4</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate realistic test data</span></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>birthTimes <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, m)</span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>startSamplingPeriod <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">6</span><span class="op">:</span><span class="fl">15</span>, m)</span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>endSamplingPeriod <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">16</span><span class="op">:</span><span class="fl">20</span>, m)</span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> <span class="fu">rand</span>([<span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">9</span>], m, maxt)</span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Keep TestMat as Float64 with NaN for missing values in Julia</span></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>TestMat <span class="op">=</span> <span class="fu">Float64</span>.(<span class="fu">rand</span>(<span class="fl">1</span><span class="op">:</span>m, <span class="fl">50</span>, <span class="fl">3</span> <span class="op">+</span> numTests))</span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>TestMat[<span class="op">:</span>, <span class="fl">4</span><span class="op">:</span><span class="kw">end</span>] <span class="op">=</span> <span class="fu">rand</span>([<span class="fl">0.0</span>, <span class="fl">1.0</span>, <span class="cn">NaN</span>], <span class="fl">50</span>, numTests)</span>
-<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>thetas <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">0.1</span><span class="op">:</span><span class="fl">0.1</span><span class="op">:</span><span class="fl">0.9</span>, numTests)</span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>rhos <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">0.1</span><span class="op">:</span><span class="fl">0.1</span><span class="op">:</span><span class="fl">0.9</span>, numTests)</span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>phis <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">0.1</span><span class="op">:</span><span class="fl">0.1</span><span class="op">:</span><span class="fl">0.9</span>, numTests)</span>
-<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>hp_theta <span class="op">=</span> [<span class="fl">1.0</span>, <span class="fl">1.0</span>]</span>
-<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>hp_rho <span class="op">=</span> [<span class="fl">1.0</span>, <span class="fl">1.0</span>]</span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>hp_xi <span class="op">=</span> [<span class="fl">81.0</span>, <span class="fl">60.0</span>]</span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Create TestField and TestTimes (use CORRECTED version)</span></span>
-<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>TestField <span class="op">=</span> <span class="fu">TestMatAsField_CORRECTED</span>(TestMat, m)</span>
-<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>TestTimes <span class="op">=</span> <span class="fu">TestTimesField</span>(TestMat, m)</span>
-<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">🧪 Function Comparison Tests"</span>)</span>
-<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"="</span><span class="op">^</span><span class="fl">60</span>)</span>
-<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Run each test block individually"</span>)</span>
-<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"="</span><span class="op">^</span><span class="fl">60</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">🎲 Generating test data..."</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">123</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Test parameters</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>G <span class="op">=</span> <span class="fl">3</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fl">10</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>maxt <span class="op">=</span> <span class="fl">20</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>numTests <span class="op">=</span> <span class="fl">4</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>numSeasons <span class="op">=</span> <span class="fl">4</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate realistic test data</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>birthTimes <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, m)</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>startSamplingPeriod <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">6</span><span class="op">:</span><span class="fl">15</span>, m)</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>endSamplingPeriod <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">16</span><span class="op">:</span><span class="fl">20</span>, m)</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>X <span class="op">=</span> <span class="fu">rand</span>([<span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">9</span>], m, maxt)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Keep TestMat as Float64 with NaN for missing values in Julia</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>TestMat <span class="op">=</span> <span class="fu">Float64</span>.(<span class="fu">rand</span>(<span class="fl">1</span><span class="op">:</span>m, <span class="fl">50</span>, <span class="fl">3</span> <span class="op">+</span> numTests))</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>TestMat[<span class="op">:</span>, <span class="fl">4</span><span class="op">:</span><span class="kw">end</span>] <span class="op">=</span> <span class="fu">rand</span>([<span class="fl">0.0</span>, <span class="fl">1.0</span>, <span class="cn">NaN</span>], <span class="fl">50</span>, numTests)</span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>thetas <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">0.1</span><span class="op">:</span><span class="fl">0.1</span><span class="op">:</span><span class="fl">0.9</span>, numTests)</span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>rhos <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">0.1</span><span class="op">:</span><span class="fl">0.1</span><span class="op">:</span><span class="fl">0.9</span>, numTests)</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>phis <span class="op">=</span> <span class="fu">rand</span>(<span class="fl">0.1</span><span class="op">:</span><span class="fl">0.1</span><span class="op">:</span><span class="fl">0.9</span>, numTests)</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>hp_theta <span class="op">=</span> [<span class="fl">1.0</span>, <span class="fl">1.0</span>]</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>hp_rho <span class="op">=</span> [<span class="fl">1.0</span>, <span class="fl">1.0</span>]</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>hp_xi <span class="op">=</span> [<span class="fl">81.0</span>, <span class="fl">60.0</span>]</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Create TestField and TestTimes (use CORRECTED version)</span></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>TestField <span class="op">=</span> <span class="fu">TestMatAsField_CORRECTED</span>(TestMat, m)</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>TestTimes <span class="op">=</span> <span class="fu">TestTimesField</span>(TestMat, m);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-🎲 Generating test data...
-
-🧪 Function Comparison Tests
-============================================================
-Run each test block individually
-============================================================</code></pre>
+🎲 Generating test data...</code></pre>
 </div>
 </div>
 </section>
@@ -280,30 +286,30 @@ Run each test block individually
 <h1>Test 1: TrProbDeath_</h1>
 <p>Deterministic function - direct comparison.</p>
 <div id="16" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">1️⃣ Testing TrProbDeath_"</span>)</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>age <span class="op">=</span> <span class="fl">5.0</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>a2 <span class="op">=</span> <span class="fl">1.0</span></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> <span class="fl">1.0</span></span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>c1 <span class="op">=</span> <span class="fl">1.0</span></span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>logar <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
-<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">TrProbDeath_</span>(age, a2, b2, c1, logar)</span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
-<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
-<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> age a2 b2 c1 logar</span>
-<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"TrProbDeath_(age, a2, b2, c1, logar)"</span>[<span class="fl">1</span>]</span>
-<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
-<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
-<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
-<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
-<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
-<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">1️⃣ Testing TrProbDeath_"</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>age <span class="op">=</span> <span class="fl">5.0</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>a2 <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>c1 <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>logar <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">TrProbDeath_</span>(age, a2, b2, c1, logar)</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> age a2 b2 c1 logar</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"TrProbDeath_(age, a2, b2, c1, logar)"</span>[<span class="fl">1</span>]</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 1️⃣ Testing TrProbDeath_
@@ -318,26 +324,26 @@ Difference:   0.0
 <h1>Test 2: logisticD</h1>
 <p>Deterministic function - direct comparison.</p>
 <div id="18" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">2️⃣ Testing logisticD"</span>)</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> <span class="fl">0.5</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">logisticD</span>(x)</span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> x</span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"logisticD(x)"</span>[<span class="fl">1</span>]</span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
-<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
-<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
-<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
-<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
-<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">2️⃣ Testing logisticD"</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> <span class="fl">0.5</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">logisticD</span>(x)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> x</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"logisticD(x)"</span>[<span class="fl">1</span>]</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 2️⃣ Testing logisticD
@@ -352,26 +358,26 @@ Difference:   0.0
 <h1>Test 3: logPostThetasRhos</h1>
 <p>Deterministic function - direct comparison.</p>
 <div id="20" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">3️⃣ Testing logPostThetasRhos"</span>)</span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">logPostThetasRhos</span>(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>                                TestField, TestTimes, hp_theta, hp_rho)</span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> thetas rhos X startSamplingPeriod endSamplingPeriod TestField TestTimes hp_theta hp_rho</span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)"</span>[<span class="fl">1</span>]</span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">3️⃣ Testing logPostThetasRhos"</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">logPostThetasRhos</span>(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>                                TestField, TestTimes, hp_theta, hp_rho)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> thetas rhos X startSamplingPeriod endSamplingPeriod TestField TestTimes hp_theta hp_rho</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)"</span>[<span class="fl">1</span>]</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 3️⃣ Testing logPostThetasRhos
@@ -386,26 +392,26 @@ Difference:   0.0
 <h1>Test 4: gradThetasRhos</h1>
 <p>Deterministic function - vector comparison.</p>
 <div id="22" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">4️⃣ Testing gradThetasRhos"</span>)</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">gradThetasRhos</span>(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>                              TestField, TestTimes, hp_theta, hp_rho)</span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
-<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> thetas rhos X startSamplingPeriod endSamplingPeriod TestField TestTimes hp_theta hp_rho</span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"gradThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)"</span></span>
-<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
-<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare (vector comparison)</span></span>
-<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>max_diff <span class="op">=</span> <span class="fu">maximum</span>(<span class="fu">abs</span>.(julia_result <span class="op">.-</span> r_result))</span>
-<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Max difference: "</span>, max_diff)</span>
-<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> max_diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
-<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">4️⃣ Testing gradThetasRhos"</span>)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">gradThetasRhos</span>(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>                              TestField, TestTimes, hp_theta, hp_rho)</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> thetas rhos X startSamplingPeriod endSamplingPeriod TestField TestTimes hp_theta hp_rho</span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"gradThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)"</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare (vector comparison)</span></span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>max_diff <span class="op">=</span> <span class="fu">maximum</span>(<span class="fu">abs</span>.(julia_result <span class="op">.-</span> r_result))</span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Max difference: "</span>, max_diff)</span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> max_diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 4️⃣ Testing gradThetasRhos
@@ -430,67 +436,67 @@ Max difference: 0.0
 <h1>Test 5: HMC_thetas_rhos (Stochastic)</h1>
 <p>This function has random components - comparing distributions.</p>
 <div id="24" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">5️⃣ Testing HMC_thetas_rhos (Stochastic)"</span>)</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"This function has random components - comparing distributions..."</span>)</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>epsilonsens <span class="op">=</span> <span class="fl">0.1</span></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>L <span class="op">=</span> <span class="fl">5</span></span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">10000</span></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Run Julia version n_samples times</span></span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running Julia version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>julia_results <span class="op">=</span> <span class="fu">zeros</span>(n_samples, <span class="fl">2</span><span class="op">*</span>numTests)</span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_samples</span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>    julia_results[i, <span class="op">:</span>] <span class="op">=</span> <span class="fu">HMC_thetas_rhos</span>(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>                                          TestField, TestTimes, hp_theta, hp_rho, epsilonsens, L)</span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Run R version n_samples times</span></span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running R version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
-<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> thetas rhos X startSamplingPeriod endSamplingPeriod TestField TestTimes hp_theta hp_rho epsilonsens L n_samples</span>
-<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
-<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a><span class="st">r_results &lt;- matrix(0, nrow = n_samples, ncol = length(thetas) + length(rhos))</span></span>
-<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a><span class="st">for (i in 1:n_samples) {</span></span>
-<span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a><span class="st">    r_results[i, ] &lt;- HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span></span>
-<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a><span class="st">                                      TestField, TestTimes, hp_theta, hp_rho, epsilonsens, L)</span></span>
-<span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
-<span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
-<span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a>r_results <span class="op">=</span> <span class="pp">@rget</span> r_results</span>
-<span id="cb25-27"><a href="#cb25-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-28"><a href="#cb25-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare distributions using statistical tests</span></span>
-<span id="cb25-29"><a href="#cb25-29" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Distribution comparison (mean ± std):"</span>)</span>
-<span id="cb25-30"><a href="#cb25-30" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"-"</span><span class="op">^</span><span class="fl">60</span>)</span>
-<span id="cb25-31"><a href="#cb25-31" aria-hidden="true" tabindex="-1"></a>n_params <span class="op">=</span> <span class="fu">size</span>(julia_results, <span class="fl">2</span>)</span>
-<span id="cb25-32"><a href="#cb25-32" aria-hidden="true" tabindex="-1"></a>all_pass <span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_params</span>
-<span id="cb25-34"><a href="#cb25-34" aria-hidden="true" tabindex="-1"></a>    julia_mean <span class="op">=</span> <span class="fu">mean</span>(julia_results[<span class="op">:</span>, i])</span>
-<span id="cb25-35"><a href="#cb25-35" aria-hidden="true" tabindex="-1"></a>    julia_std <span class="op">=</span> <span class="fu">std</span>(julia_results[<span class="op">:</span>, i])</span>
-<span id="cb25-36"><a href="#cb25-36" aria-hidden="true" tabindex="-1"></a>    r_mean <span class="op">=</span> <span class="fu">mean</span>(r_results[<span class="op">:</span>, i])</span>
-<span id="cb25-37"><a href="#cb25-37" aria-hidden="true" tabindex="-1"></a>    r_std <span class="op">=</span> <span class="fu">std</span>(r_results[<span class="op">:</span>, i])</span>
-<span id="cb25-38"><a href="#cb25-38" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb25-39"><a href="#cb25-39" aria-hidden="true" tabindex="-1"></a>    mean_diff <span class="op">=</span> <span class="fu">abs</span>(julia_mean <span class="op">-</span> r_mean)</span>
-<span id="cb25-40"><a href="#cb25-40" aria-hidden="true" tabindex="-1"></a>    std_diff <span class="op">=</span> <span class="fu">abs</span>(julia_std <span class="op">-</span> r_std)</span>
-<span id="cb25-41"><a href="#cb25-41" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Check if means are within 3 standard errors of each other</span></span>
-<span id="cb25-43"><a href="#cb25-43" aria-hidden="true" tabindex="-1"></a>    se <span class="op">=</span> <span class="fu">sqrt</span>(julia_std<span class="op">^</span><span class="fl">2</span> <span class="op">+</span> r_std<span class="op">^</span><span class="fl">2</span>) <span class="op">/</span> <span class="fu">sqrt</span>(n_samples)</span>
-<span id="cb25-44"><a href="#cb25-44" aria-hidden="true" tabindex="-1"></a>    pass <span class="op">=</span> mean_diff <span class="op">&lt;</span> <span class="fl">3</span> <span class="op">*</span> se</span>
-<span id="cb25-45"><a href="#cb25-45" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb25-46"><a href="#cb25-46" aria-hidden="true" tabindex="-1"></a>    status <span class="op">=</span> pass ? <span class="st">"✅"</span> <span class="op">:</span> <span class="st">"❌"</span></span>
-<span id="cb25-47"><a href="#cb25-47" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">$</span>status<span class="st"> Param </span><span class="sc">$</span>i<span class="st">:"</span>)</span>
-<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"   Julia: </span><span class="sc">$</span>(<span class="fu">round</span>(julia_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(julia_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
-<span id="cb25-49"><a href="#cb25-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"   R:     </span><span class="sc">$</span>(<span class="fu">round</span>(r_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(r_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
-<span id="cb25-50"><a href="#cb25-50" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"   Mean diff: </span><span class="sc">$</span>(<span class="fu">round</span>(mean_diff, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">, SE: </span><span class="sc">$</span>(<span class="fu">round</span>(se, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">"</span>)</span>
-<span id="cb25-51"><a href="#cb25-51" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb25-52"><a href="#cb25-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> !pass</span>
-<span id="cb25-53"><a href="#cb25-53" aria-hidden="true" tabindex="-1"></a>        all_pass <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb25-54"><a href="#cb25-54" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb25-55"><a href="#cb25-55" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb25-56"><a href="#cb25-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-57"><a href="#cb25-57" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> all_pass</span>
-<span id="cb25-58"><a href="#cb25-58" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">✅ PASS - All distributions match statistically"</span>)</span>
-<span id="cb25-59"><a href="#cb25-59" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb25-60"><a href="#cb25-60" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">❌ FAIL - Some distributions differ significantly"</span>)</span>
-<span id="cb25-61"><a href="#cb25-61" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">5️⃣ Testing HMC_thetas_rhos (Stochastic)"</span>)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"This function has random components - comparing distributions..."</span>)</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>epsilonsens <span class="op">=</span> <span class="fl">0.1</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>L <span class="op">=</span> <span class="fl">5</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">10000</span></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Run Julia version n_samples times</span></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running Julia version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>julia_results <span class="op">=</span> <span class="fu">zeros</span>(n_samples, <span class="fl">2</span><span class="op">*</span>numTests)</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_samples</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>    julia_results[i, <span class="op">:</span>] <span class="op">=</span> <span class="fu">HMC_thetas_rhos</span>(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>                                          TestField, TestTimes, hp_theta, hp_rho, epsilonsens, L)</span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Run R version n_samples times</span></span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running R version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
+<span id="cb26-18"><a href="#cb26-18" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> thetas rhos X startSamplingPeriod endSamplingPeriod TestField TestTimes hp_theta hp_rho epsilonsens L n_samples</span>
+<span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
+<span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a><span class="st">r_results &lt;- matrix(0, nrow = n_samples, ncol = length(thetas) + length(rhos))</span></span>
+<span id="cb26-21"><a href="#cb26-21" aria-hidden="true" tabindex="-1"></a><span class="st">for (i in 1:n_samples) {</span></span>
+<span id="cb26-22"><a href="#cb26-22" aria-hidden="true" tabindex="-1"></a><span class="st">    r_results[i, ] &lt;- HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, </span></span>
+<span id="cb26-23"><a href="#cb26-23" aria-hidden="true" tabindex="-1"></a><span class="st">                                      TestField, TestTimes, hp_theta, hp_rho, epsilonsens, L)</span></span>
+<span id="cb26-24"><a href="#cb26-24" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb26-25"><a href="#cb26-25" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb26-26"><a href="#cb26-26" aria-hidden="true" tabindex="-1"></a>r_results <span class="op">=</span> <span class="pp">@rget</span> r_results</span>
+<span id="cb26-27"><a href="#cb26-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-28"><a href="#cb26-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare distributions using statistical tests</span></span>
+<span id="cb26-29"><a href="#cb26-29" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Distribution comparison (mean ± std):"</span>)</span>
+<span id="cb26-30"><a href="#cb26-30" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"-"</span><span class="op">^</span><span class="fl">60</span>)</span>
+<span id="cb26-31"><a href="#cb26-31" aria-hidden="true" tabindex="-1"></a>n_params <span class="op">=</span> <span class="fu">size</span>(julia_results, <span class="fl">2</span>)</span>
+<span id="cb26-32"><a href="#cb26-32" aria-hidden="true" tabindex="-1"></a>all_pass <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb26-33"><a href="#cb26-33" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_params</span>
+<span id="cb26-34"><a href="#cb26-34" aria-hidden="true" tabindex="-1"></a>    julia_mean <span class="op">=</span> <span class="fu">mean</span>(julia_results[<span class="op">:</span>, i])</span>
+<span id="cb26-35"><a href="#cb26-35" aria-hidden="true" tabindex="-1"></a>    julia_std <span class="op">=</span> <span class="fu">std</span>(julia_results[<span class="op">:</span>, i])</span>
+<span id="cb26-36"><a href="#cb26-36" aria-hidden="true" tabindex="-1"></a>    r_mean <span class="op">=</span> <span class="fu">mean</span>(r_results[<span class="op">:</span>, i])</span>
+<span id="cb26-37"><a href="#cb26-37" aria-hidden="true" tabindex="-1"></a>    r_std <span class="op">=</span> <span class="fu">std</span>(r_results[<span class="op">:</span>, i])</span>
+<span id="cb26-38"><a href="#cb26-38" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb26-39"><a href="#cb26-39" aria-hidden="true" tabindex="-1"></a>    mean_diff <span class="op">=</span> <span class="fu">abs</span>(julia_mean <span class="op">-</span> r_mean)</span>
+<span id="cb26-40"><a href="#cb26-40" aria-hidden="true" tabindex="-1"></a>    std_diff <span class="op">=</span> <span class="fu">abs</span>(julia_std <span class="op">-</span> r_std)</span>
+<span id="cb26-41"><a href="#cb26-41" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb26-42"><a href="#cb26-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Check if means are within 3 standard errors of each other</span></span>
+<span id="cb26-43"><a href="#cb26-43" aria-hidden="true" tabindex="-1"></a>    se <span class="op">=</span> <span class="fu">sqrt</span>(julia_std<span class="op">^</span><span class="fl">2</span> <span class="op">+</span> r_std<span class="op">^</span><span class="fl">2</span>) <span class="op">/</span> <span class="fu">sqrt</span>(n_samples)</span>
+<span id="cb26-44"><a href="#cb26-44" aria-hidden="true" tabindex="-1"></a>    pass <span class="op">=</span> mean_diff <span class="op">&lt;</span> <span class="fl">3</span> <span class="op">*</span> se</span>
+<span id="cb26-45"><a href="#cb26-45" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb26-46"><a href="#cb26-46" aria-hidden="true" tabindex="-1"></a>    status <span class="op">=</span> pass ? <span class="st">"✅"</span> <span class="op">:</span> <span class="st">"❌"</span></span>
+<span id="cb26-47"><a href="#cb26-47" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">$</span>status<span class="st"> Param </span><span class="sc">$</span>i<span class="st">:"</span>)</span>
+<span id="cb26-48"><a href="#cb26-48" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"   Julia: </span><span class="sc">$</span>(<span class="fu">round</span>(julia_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(julia_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
+<span id="cb26-49"><a href="#cb26-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"   R:     </span><span class="sc">$</span>(<span class="fu">round</span>(r_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(r_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
+<span id="cb26-50"><a href="#cb26-50" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"   Mean diff: </span><span class="sc">$</span>(<span class="fu">round</span>(mean_diff, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">, SE: </span><span class="sc">$</span>(<span class="fu">round</span>(se, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">"</span>)</span>
+<span id="cb26-51"><a href="#cb26-51" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb26-52"><a href="#cb26-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> !pass</span>
+<span id="cb26-53"><a href="#cb26-53" aria-hidden="true" tabindex="-1"></a>        all_pass <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb26-54"><a href="#cb26-54" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb26-55"><a href="#cb26-55" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb26-56"><a href="#cb26-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-57"><a href="#cb26-57" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> all_pass</span>
+<span id="cb26-58"><a href="#cb26-58" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">✅ PASS - All distributions match statistically"</span>)</span>
+<span id="cb26-59"><a href="#cb26-59" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb26-60"><a href="#cb26-60" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">❌ FAIL - Some distributions differ significantly"</span>)</span>
+<span id="cb26-61"><a href="#cb26-61" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 5️⃣ Testing HMC_thetas_rhos (Stochastic)
@@ -502,36 +508,36 @@ Distribution comparison (mean ± std):
 ------------------------------------------------------------
 ✅ Param 1:
    Julia: 0.4134 ± 0.077
-   R:     0.4132 ± 0.076
-   Mean diff: 0.000286, SE: 0.001082
+   R:     0.4118 ± 0.0769
+   Mean diff: 0.001688, SE: 0.001088
 ✅ Param 2:
    Julia: 0.5975 ± 0.0774
-   R:     0.5988 ± 0.0746
-   Mean diff: 0.001366, SE: 0.001076
+   R:     0.5976 ± 0.0742
+   Mean diff: 0.00013, SE: 0.001073
 ✅ Param 3:
    Julia: 0.1185 ± 0.0405
-   R:     0.1183 ± 0.0409
-   Mean diff: 0.000181, SE: 0.000576
+   R:     0.1184 ± 0.0404
+   Mean diff: 0.000133, SE: 0.000572
 ✅ Param 4:
    Julia: 0.6865 ± 0.0711
-   R:     0.6881 ± 0.0697
-   Mean diff: 0.001586, SE: 0.000996
+   R:     0.6866 ± 0.0695
+   Mean diff: 5.7e-5, SE: 0.000994
 ✅ Param 5:
    Julia: 0.6954 ± 0.0676
-   R:     0.6948 ± 0.0677
-   Mean diff: 0.000602, SE: 0.000956
+   R:     0.6947 ± 0.0676
+   Mean diff: 0.000674, SE: 0.000956
 ✅ Param 6:
    Julia: 0.5972 ± 0.0762
-   R:     0.5973 ± 0.0755
-   Mean diff: 5.3e-5, SE: 0.001072
+   R:     0.5971 ± 0.075
+   Mean diff: 8.7e-5, SE: 0.001069
 ✅ Param 7:
    Julia: 0.605 ± 0.0749
-   R:     0.606 ± 0.074
-   Mean diff: 0.000998, SE: 0.001053
+   R:     0.6051 ± 0.0737
+   Mean diff: 7.4e-5, SE: 0.001051
 ✅ Param 8:
    Julia: 0.7872 ± 0.0568
-   R:     0.7871 ± 0.0567
-   Mean diff: 0.000131, SE: 0.000802
+   R:     0.7877 ± 0.0568
+   Mean diff: 0.000507, SE: 0.000803
 
 ✅ PASS - All distributions match statistically</code></pre>
 </div>
@@ -541,87 +547,87 @@ Distribution comparison (mean ± std):
 <h1>Test 6: TestMatAsField</h1>
 <p>Field conversion function - compare each field element.</p>
 <div id="26" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">6️⃣ Testing TestMatAsField"</span>)</span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result (use CORRECTED version)</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">TestMatAsField_CORRECTED</span>(TestMat, m)</span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
-<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> TestMat m</span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a><span class="st">r_field &lt;- TestMatAsField(TestMat, m)</span></span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a><span class="st"># Convert field to list of matrices for comparison</span></span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a><span class="st">r_result_list &lt;- lapply(r_field, function(x) matrix(x, ncol=ncol(x)))</span></span>
-<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
-<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> <span class="pp">@rget</span> r_result_list</span>
-<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
-<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare field arrays (need to compare each element)</span></span>
-<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result length: "</span>, <span class="fu">length</span>(julia_result))</span>
-<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result length:     "</span>, <span class="fu">length</span>(r_result))</span>
-<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a>field_match <span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb27-21"><a href="#cb27-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-22"><a href="#cb27-22" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="fu">length</span>(julia_result) <span class="op">!=</span> <span class="fu">length</span>(r_result)</span>
-<span id="cb27-23"><a href="#cb27-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL - Different number of fields"</span>)</span>
-<span id="cb27-24"><a href="#cb27-24" aria-hidden="true" tabindex="-1"></a>    field_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb27-25"><a href="#cb27-25" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb27-26"><a href="#cb27-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(julia_result)</span>
-<span id="cb27-27"><a href="#cb27-27" aria-hidden="true" tabindex="-1"></a>        j_field <span class="op">=</span> julia_result[i]</span>
-<span id="cb27-28"><a href="#cb27-28" aria-hidden="true" tabindex="-1"></a>        r_field <span class="op">=</span> r_result[i]</span>
-<span id="cb27-29"><a href="#cb27-29" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb27-30"><a href="#cb27-30" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"Field </span><span class="sc">$</span>i<span class="st"> - Julia size: "</span>, <span class="fu">size</span>(j_field), <span class="st">", R size: "</span>, <span class="fu">size</span>(r_field))</span>
-<span id="cb27-31"><a href="#cb27-31" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb27-32"><a href="#cb27-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="fu">size</span>(j_field) <span class="op">!=</span> <span class="fu">size</span>(r_field)</span>
-<span id="cb27-33"><a href="#cb27-33" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"  ❌ Size mismatch"</span>)</span>
-<span id="cb27-34"><a href="#cb27-34" aria-hidden="true" tabindex="-1"></a>            field_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb27-35"><a href="#cb27-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
-<span id="cb27-36"><a href="#cb27-36" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Compare element-wise, handling NaN and Missing</span></span>
-<span id="cb27-37"><a href="#cb27-37" aria-hidden="true" tabindex="-1"></a>            <span class="co"># R's NA becomes Missing in Julia, our NaN stays as NaN</span></span>
-<span id="cb27-38"><a href="#cb27-38" aria-hidden="true" tabindex="-1"></a>            max_diff <span class="op">=</span> <span class="fl">0.0</span></span>
-<span id="cb27-39"><a href="#cb27-39" aria-hidden="true" tabindex="-1"></a>            n_compared <span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb27-40"><a href="#cb27-40" aria-hidden="true" tabindex="-1"></a>            </span>
-<span id="cb27-41"><a href="#cb27-41" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> idx <span class="kw">in</span> <span class="fu">CartesianIndices</span>(j_field)</span>
-<span id="cb27-42"><a href="#cb27-42" aria-hidden="true" tabindex="-1"></a>                j_val <span class="op">=</span> j_field[idx]</span>
-<span id="cb27-43"><a href="#cb27-43" aria-hidden="true" tabindex="-1"></a>                r_val <span class="op">=</span> r_field[idx]</span>
-<span id="cb27-44"><a href="#cb27-44" aria-hidden="true" tabindex="-1"></a>                </span>
-<span id="cb27-45"><a href="#cb27-45" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Check if both are missing/NaN</span></span>
-<span id="cb27-46"><a href="#cb27-46" aria-hidden="true" tabindex="-1"></a>                j_missing <span class="op">=</span> <span class="fu">isnan</span>(j_val)</span>
-<span id="cb27-47"><a href="#cb27-47" aria-hidden="true" tabindex="-1"></a>                r_missing <span class="op">=</span> <span class="fu">ismissing</span>(r_val) <span class="op">||</span> (r_val isa <span class="dt">Float64</span> <span class="op">&amp;&amp;</span> <span class="fu">isnan</span>(r_val))</span>
-<span id="cb27-48"><a href="#cb27-48" aria-hidden="true" tabindex="-1"></a>                </span>
-<span id="cb27-49"><a href="#cb27-49" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> j_missing <span class="op">&amp;&amp;</span> r_missing</span>
-<span id="cb27-50"><a href="#cb27-50" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># Both missing - OK</span></span>
-<span id="cb27-51"><a href="#cb27-51" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
-<span id="cb27-52"><a href="#cb27-52" aria-hidden="true" tabindex="-1"></a>                <span class="cf">elseif</span> j_missing <span class="op">||</span> r_missing</span>
-<span id="cb27-53"><a href="#cb27-53" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># One missing, one not - FAIL</span></span>
-<span id="cb27-54"><a href="#cb27-54" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">println</span>(<span class="st">"  ❌ Mismatch at </span><span class="sc">$</span>idx<span class="st">: Julia=</span><span class="sc">$</span>j_val<span class="st">, R=</span><span class="sc">$</span>r_val<span class="st">"</span>)</span>
-<span id="cb27-55"><a href="#cb27-55" aria-hidden="true" tabindex="-1"></a>                    field_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb27-56"><a href="#cb27-56" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">break</span></span>
-<span id="cb27-57"><a href="#cb27-57" aria-hidden="true" tabindex="-1"></a>                <span class="cf">else</span></span>
-<span id="cb27-58"><a href="#cb27-58" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># Both have values - compare</span></span>
-<span id="cb27-59"><a href="#cb27-59" aria-hidden="true" tabindex="-1"></a>                    diff <span class="op">=</span> <span class="fu">abs</span>(j_val <span class="op">-</span> r_val)</span>
-<span id="cb27-60"><a href="#cb27-60" aria-hidden="true" tabindex="-1"></a>                    max_diff <span class="op">=</span> <span class="fu">max</span>(max_diff, diff)</span>
-<span id="cb27-61"><a href="#cb27-61" aria-hidden="true" tabindex="-1"></a>                    n_compared <span class="op">+=</span> <span class="fl">1</span></span>
-<span id="cb27-62"><a href="#cb27-62" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
-<span id="cb27-63"><a href="#cb27-63" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
-<span id="cb27-64"><a href="#cb27-64" aria-hidden="true" tabindex="-1"></a>            </span>
-<span id="cb27-65"><a href="#cb27-65" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> n_compared <span class="op">&gt;</span> <span class="fl">0</span></span>
-<span id="cb27-66"><a href="#cb27-66" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  Max diff: </span><span class="sc">$</span>max_diff<span class="st"> (compared </span><span class="sc">$</span>n_compared<span class="st"> values)"</span>)</span>
-<span id="cb27-67"><a href="#cb27-67" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> max_diff <span class="op">&gt;</span> <span class="fl">1e-10</span></span>
-<span id="cb27-68"><a href="#cb27-68" aria-hidden="true" tabindex="-1"></a>                    field_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb27-69"><a href="#cb27-69" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
-<span id="cb27-70"><a href="#cb27-70" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span></span>
-<span id="cb27-71"><a href="#cb27-71" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  All values are missing/NaN"</span>)</span>
-<span id="cb27-72"><a href="#cb27-72" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
-<span id="cb27-73"><a href="#cb27-73" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb27-74"><a href="#cb27-74" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb27-75"><a href="#cb27-75" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb27-76"><a href="#cb27-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-77"><a href="#cb27-77" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> field_match</span>
-<span id="cb27-78"><a href="#cb27-78" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb27-79"><a href="#cb27-79" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb27-80"><a href="#cb27-80" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb27-81"><a href="#cb27-81" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">6️⃣ Testing TestMatAsField"</span>)</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result (use CORRECTED version)</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">TestMatAsField_CORRECTED</span>(TestMat, m)</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> TestMat m</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a><span class="st">r_field &lt;- TestMatAsField(TestMat, m)</span></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a><span class="st"># Convert field to list of matrices for comparison</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a><span class="st">r_result_list &lt;- lapply(r_field, function(x) matrix(x, ncol=ncol(x)))</span></span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> <span class="pp">@rget</span> r_result_list</span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare field arrays (need to compare each element)</span></span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result length: "</span>, <span class="fu">length</span>(julia_result))</span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result length:     "</span>, <span class="fu">length</span>(r_result))</span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>field_match <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="fu">length</span>(julia_result) <span class="op">!=</span> <span class="fu">length</span>(r_result)</span>
+<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL - Different number of fields"</span>)</span>
+<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>    field_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(julia_result)</span>
+<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a>        j_field <span class="op">=</span> julia_result[i]</span>
+<span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a>        r_field <span class="op">=</span> r_result[i]</span>
+<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"Field </span><span class="sc">$</span>i<span class="st"> - Julia size: "</span>, <span class="fu">size</span>(j_field), <span class="st">", R size: "</span>, <span class="fu">size</span>(r_field))</span>
+<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="fu">size</span>(j_field) <span class="op">!=</span> <span class="fu">size</span>(r_field)</span>
+<span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"  ❌ Size mismatch"</span>)</span>
+<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a>            field_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb28-35"><a href="#cb28-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
+<span id="cb28-36"><a href="#cb28-36" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Compare element-wise, handling NaN and Missing</span></span>
+<span id="cb28-37"><a href="#cb28-37" aria-hidden="true" tabindex="-1"></a>            <span class="co"># R's NA becomes Missing in Julia, our NaN stays as NaN</span></span>
+<span id="cb28-38"><a href="#cb28-38" aria-hidden="true" tabindex="-1"></a>            max_diff <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb28-39"><a href="#cb28-39" aria-hidden="true" tabindex="-1"></a>            n_compared <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb28-40"><a href="#cb28-40" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb28-41"><a href="#cb28-41" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> idx <span class="kw">in</span> <span class="fu">CartesianIndices</span>(j_field)</span>
+<span id="cb28-42"><a href="#cb28-42" aria-hidden="true" tabindex="-1"></a>                j_val <span class="op">=</span> j_field[idx]</span>
+<span id="cb28-43"><a href="#cb28-43" aria-hidden="true" tabindex="-1"></a>                r_val <span class="op">=</span> r_field[idx]</span>
+<span id="cb28-44"><a href="#cb28-44" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb28-45"><a href="#cb28-45" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Check if both are missing/NaN</span></span>
+<span id="cb28-46"><a href="#cb28-46" aria-hidden="true" tabindex="-1"></a>                j_missing <span class="op">=</span> <span class="fu">isnan</span>(j_val)</span>
+<span id="cb28-47"><a href="#cb28-47" aria-hidden="true" tabindex="-1"></a>                r_missing <span class="op">=</span> <span class="fu">ismissing</span>(r_val) <span class="op">||</span> (r_val isa <span class="dt">Float64</span> <span class="op">&amp;&amp;</span> <span class="fu">isnan</span>(r_val))</span>
+<span id="cb28-48"><a href="#cb28-48" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb28-49"><a href="#cb28-49" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> j_missing <span class="op">&amp;&amp;</span> r_missing</span>
+<span id="cb28-50"><a href="#cb28-50" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># Both missing - OK</span></span>
+<span id="cb28-51"><a href="#cb28-51" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
+<span id="cb28-52"><a href="#cb28-52" aria-hidden="true" tabindex="-1"></a>                <span class="cf">elseif</span> j_missing <span class="op">||</span> r_missing</span>
+<span id="cb28-53"><a href="#cb28-53" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># One missing, one not - FAIL</span></span>
+<span id="cb28-54"><a href="#cb28-54" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">println</span>(<span class="st">"  ❌ Mismatch at </span><span class="sc">$</span>idx<span class="st">: Julia=</span><span class="sc">$</span>j_val<span class="st">, R=</span><span class="sc">$</span>r_val<span class="st">"</span>)</span>
+<span id="cb28-55"><a href="#cb28-55" aria-hidden="true" tabindex="-1"></a>                    field_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb28-56"><a href="#cb28-56" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">break</span></span>
+<span id="cb28-57"><a href="#cb28-57" aria-hidden="true" tabindex="-1"></a>                <span class="cf">else</span></span>
+<span id="cb28-58"><a href="#cb28-58" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># Both have values - compare</span></span>
+<span id="cb28-59"><a href="#cb28-59" aria-hidden="true" tabindex="-1"></a>                    diff <span class="op">=</span> <span class="fu">abs</span>(j_val <span class="op">-</span> r_val)</span>
+<span id="cb28-60"><a href="#cb28-60" aria-hidden="true" tabindex="-1"></a>                    max_diff <span class="op">=</span> <span class="fu">max</span>(max_diff, diff)</span>
+<span id="cb28-61"><a href="#cb28-61" aria-hidden="true" tabindex="-1"></a>                    n_compared <span class="op">+=</span> <span class="fl">1</span></span>
+<span id="cb28-62"><a href="#cb28-62" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
+<span id="cb28-63"><a href="#cb28-63" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
+<span id="cb28-64"><a href="#cb28-64" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb28-65"><a href="#cb28-65" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> n_compared <span class="op">&gt;</span> <span class="fl">0</span></span>
+<span id="cb28-66"><a href="#cb28-66" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  Max diff: </span><span class="sc">$</span>max_diff<span class="st"> (compared </span><span class="sc">$</span>n_compared<span class="st"> values)"</span>)</span>
+<span id="cb28-67"><a href="#cb28-67" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> max_diff <span class="op">&gt;</span> <span class="fl">1e-10</span></span>
+<span id="cb28-68"><a href="#cb28-68" aria-hidden="true" tabindex="-1"></a>                    field_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb28-69"><a href="#cb28-69" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
+<span id="cb28-70"><a href="#cb28-70" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span></span>
+<span id="cb28-71"><a href="#cb28-71" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  All values are missing/NaN"</span>)</span>
+<span id="cb28-72"><a href="#cb28-72" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
+<span id="cb28-73"><a href="#cb28-73" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb28-74"><a href="#cb28-74" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb28-75"><a href="#cb28-75" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb28-76"><a href="#cb28-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-77"><a href="#cb28-77" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> field_match</span>
+<span id="cb28-78"><a href="#cb28-78" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb28-79"><a href="#cb28-79" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb28-80"><a href="#cb28-80" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb28-81"><a href="#cb28-81" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 6️⃣ Testing TestMatAsField
@@ -657,29 +663,29 @@ Field 10 - Julia size: (10, 4), R size: (10, 4)
 <h1>Test 7: logPostXi</h1>
 <p>Deterministic function - direct comparison.</p>
 <div id="28" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">7️⃣ Testing logPostXi"</span>)</span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>xi <span class="op">=</span> <span class="fl">15</span></span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>xiMin <span class="op">=</span> <span class="fl">10</span></span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>xiMax <span class="op">=</span> <span class="fl">20</span></span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">logPostXi</span>(xiMin, xiMax, xi, hp_xi, TestField, TestTimes, thetas, rhos, phis, </span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>                         X, startSamplingPeriod, endSamplingPeriod)</span>
-<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
-<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
-<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> xiMin xiMax xi hp_xi TestField TestTimes thetas rhos phis X startSamplingPeriod endSamplingPeriod</span>
-<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"logPostXi(xiMin, xiMax, xi, hp_xi, TestField, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)"</span>[<span class="fl">1</span>]</span>
-<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
-<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
-<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
-<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
-<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
-<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">7️⃣ Testing logPostXi"</span>)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>xi <span class="op">=</span> <span class="fl">15</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>xiMin <span class="op">=</span> <span class="fl">10</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>xiMax <span class="op">=</span> <span class="fl">20</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia result</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>julia_result <span class="op">=</span> <span class="fu">logPostXi</span>(xiMin, xiMax, xi, hp_xi, TestField, TestTimes, thetas, rhos, phis, </span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>                         X, startSamplingPeriod, endSamplingPeriod)</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, julia_result)</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a><span class="co"># R result</span></span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> xiMin xiMax xi hp_xi TestField TestTimes thetas rhos phis X startSamplingPeriod endSamplingPeriod</span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>r_result <span class="op">=</span> R<span class="st">"logPostXi(xiMin, xiMax, xi, hp_xi, TestField, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)"</span>[<span class="fl">1</span>]</span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, r_result)</span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare</span></span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>diff <span class="op">=</span> <span class="fu">abs</span>(julia_result <span class="op">-</span> r_result)</span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Difference:   "</span>, diff)</span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 7️⃣ Testing logPostXi
@@ -694,56 +700,74 @@ Difference:   0.0
 <h1>Test 8: RWMH_xi (Stochastic)</h1>
 <p>This function has random components - comparing distributions.</p>
 <div id="30" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">8️⃣ Testing RWMH_xi (Stochastic)"</span>)</span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"This function has random components - comparing distributions..."</span>)</span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>xi_cur <span class="op">=</span> <span class="fl">15</span></span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>xi_can <span class="op">=</span> <span class="fl">18</span></span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">1000</span></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Run Julia version n_samples times</span></span>
-<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running Julia version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
-<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>julia_results <span class="op">=</span> <span class="fu">zeros</span>(n_samples)</span>
-<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_samples</span>
-<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>    TestField_copy <span class="op">=</span> <span class="fu">deepcopy</span>(TestField)</span>
-<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>    TestFieldProposal_copy <span class="op">=</span> <span class="fu">deepcopy</span>(TestField)</span>
-<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>    julia_results[i] <span class="op">=</span> <span class="fu">RWMH_xi</span>(xi_can, xi_cur, hp_xi, TestFieldProposal_copy, TestField_copy, TestTimes, </span>
-<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>                               thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)</span>
-<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Run R version n_samples times</span></span>
-<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running R version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
-<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> xi_can xi_cur hp_xi TestField TestTimes thetas rhos phis X startSamplingPeriod endSamplingPeriod n_samples</span>
-<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
-<span id="cb31-22"><a href="#cb31-22" aria-hidden="true" tabindex="-1"></a><span class="st">r_results &lt;- numeric(n_samples)</span></span>
-<span id="cb31-23"><a href="#cb31-23" aria-hidden="true" tabindex="-1"></a><span class="st">for (i in 1:n_samples) {</span></span>
-<span id="cb31-24"><a href="#cb31-24" aria-hidden="true" tabindex="-1"></a><span class="st">    TestFieldProposal &lt;- TestField</span></span>
-<span id="cb31-25"><a href="#cb31-25" aria-hidden="true" tabindex="-1"></a><span class="st">    r_results[i] &lt;- RWMH_xi(xi_can, xi_cur, hp_xi, TestFieldProposal, TestField, TestTimes, </span></span>
-<span id="cb31-26"><a href="#cb31-26" aria-hidden="true" tabindex="-1"></a><span class="st">                            thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)</span></span>
-<span id="cb31-27"><a href="#cb31-27" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
-<span id="cb31-28"><a href="#cb31-28" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
-<span id="cb31-29"><a href="#cb31-29" aria-hidden="true" tabindex="-1"></a>r_results <span class="op">=</span> <span class="pp">@rget</span> r_results</span>
-<span id="cb31-30"><a href="#cb31-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-31"><a href="#cb31-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare distributions</span></span>
-<span id="cb31-32"><a href="#cb31-32" aria-hidden="true" tabindex="-1"></a>julia_mean <span class="op">=</span> <span class="fu">mean</span>(julia_results)</span>
-<span id="cb31-33"><a href="#cb31-33" aria-hidden="true" tabindex="-1"></a>julia_std <span class="op">=</span> <span class="fu">std</span>(julia_results)</span>
-<span id="cb31-34"><a href="#cb31-34" aria-hidden="true" tabindex="-1"></a>r_mean <span class="op">=</span> <span class="fu">mean</span>(r_results)</span>
-<span id="cb31-35"><a href="#cb31-35" aria-hidden="true" tabindex="-1"></a>r_std <span class="op">=</span> <span class="fu">std</span>(r_results)</span>
-<span id="cb31-36"><a href="#cb31-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-37"><a href="#cb31-37" aria-hidden="true" tabindex="-1"></a>mean_diff <span class="op">=</span> <span class="fu">abs</span>(julia_mean <span class="op">-</span> r_mean)</span>
-<span id="cb31-38"><a href="#cb31-38" aria-hidden="true" tabindex="-1"></a>se <span class="op">=</span> <span class="fu">sqrt</span>(julia_std<span class="op">^</span><span class="fl">2</span> <span class="op">+</span> r_std<span class="op">^</span><span class="fl">2</span>) <span class="op">/</span> <span class="fu">sqrt</span>(n_samples)</span>
-<span id="cb31-39"><a href="#cb31-39" aria-hidden="true" tabindex="-1"></a>pass <span class="op">=</span> mean_diff <span class="op">&lt;</span> <span class="fl">3</span> <span class="op">*</span> se</span>
-<span id="cb31-40"><a href="#cb31-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-41"><a href="#cb31-41" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Distribution comparison:"</span>)</span>
-<span id="cb31-42"><a href="#cb31-42" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia: </span><span class="sc">$</span>(<span class="fu">round</span>(julia_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(julia_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
-<span id="cb31-43"><a href="#cb31-43" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R:     </span><span class="sc">$</span>(<span class="fu">round</span>(r_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(r_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
-<span id="cb31-44"><a href="#cb31-44" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Mean diff: </span><span class="sc">$</span>(<span class="fu">round</span>(mean_diff, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">, SE: </span><span class="sc">$</span>(<span class="fu">round</span>(se, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">"</span>)</span>
-<span id="cb31-45"><a href="#cb31-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-46"><a href="#cb31-46" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> pass</span>
-<span id="cb31-47"><a href="#cb31-47" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb31-48"><a href="#cb31-48" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb31-49"><a href="#cb31-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb31-50"><a href="#cb31-50" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">8️⃣ Testing RWMH_xi (Stochastic)"</span>)</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"This function has random components - comparing distributions..."</span>)</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Use varied inputs to create stochastic behavior</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>xi_cur <span class="op">=</span> <span class="fl">87</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>xi_can <span class="op">=</span> <span class="fl">88</span>  <span class="co"># Lower value to create rejection probability</span></span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">1000</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Run Julia version n_samples times</span></span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running Julia version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>julia_results <span class="op">=</span> <span class="fu">zeros</span>(n_samples)</span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_samples</span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a>    TestField_copy <span class="op">=</span> <span class="fu">deepcopy</span>(TestField)</span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>    TestFieldProposal_copy <span class="op">=</span> <span class="fu">deepcopy</span>(TestField)</span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a>    julia_results[i] <span class="op">=</span> <span class="fu">RWMH_xi</span>(xi_can, xi_cur, hp_xi, TestFieldProposal_copy, TestField_copy, TestTimes, </span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a>                               thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)</span>
+<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a><span class="co"># Run R version n_samples times</span></span>
+<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Running R version </span><span class="sc">$</span>n_samples<span class="st"> times..."</span>)</span>
+<span id="cb32-21"><a href="#cb32-21" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> xi_can xi_cur hp_xi TestField TestTimes thetas rhos phis X startSamplingPeriod endSamplingPeriod n_samples</span>
+<span id="cb32-22"><a href="#cb32-22" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
+<span id="cb32-23"><a href="#cb32-23" aria-hidden="true" tabindex="-1"></a><span class="st">r_results &lt;- numeric(n_samples)</span></span>
+<span id="cb32-24"><a href="#cb32-24" aria-hidden="true" tabindex="-1"></a><span class="st">for (i in 1:n_samples) {</span></span>
+<span id="cb32-25"><a href="#cb32-25" aria-hidden="true" tabindex="-1"></a><span class="st">    TestFieldProposal &lt;- TestField</span></span>
+<span id="cb32-26"><a href="#cb32-26" aria-hidden="true" tabindex="-1"></a><span class="st">    r_results[i] &lt;- RWMH_xi(xi_can, xi_cur, hp_xi, TestFieldProposal, TestField, TestTimes, </span></span>
+<span id="cb32-27"><a href="#cb32-27" aria-hidden="true" tabindex="-1"></a><span class="st">                            thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)</span></span>
+<span id="cb32-28"><a href="#cb32-28" aria-hidden="true" tabindex="-1"></a><span class="st">}</span></span>
+<span id="cb32-29"><a href="#cb32-29" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb32-30"><a href="#cb32-30" aria-hidden="true" tabindex="-1"></a>r_results <span class="op">=</span> <span class="pp">@rget</span> r_results</span>
+<span id="cb32-31"><a href="#cb32-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-32"><a href="#cb32-32" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare distributions</span></span>
+<span id="cb32-33"><a href="#cb32-33" aria-hidden="true" tabindex="-1"></a>julia_mean <span class="op">=</span> <span class="fu">mean</span>(julia_results)</span>
+<span id="cb32-34"><a href="#cb32-34" aria-hidden="true" tabindex="-1"></a>julia_std <span class="op">=</span> <span class="fu">std</span>(julia_results)</span>
+<span id="cb32-35"><a href="#cb32-35" aria-hidden="true" tabindex="-1"></a>r_mean <span class="op">=</span> <span class="fu">mean</span>(r_results)</span>
+<span id="cb32-36"><a href="#cb32-36" aria-hidden="true" tabindex="-1"></a>r_std <span class="op">=</span> <span class="fu">std</span>(r_results)</span>
+<span id="cb32-37"><a href="#cb32-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-38"><a href="#cb32-38" aria-hidden="true" tabindex="-1"></a>mean_diff <span class="op">=</span> <span class="fu">abs</span>(julia_mean <span class="op">-</span> r_mean)</span>
+<span id="cb32-39"><a href="#cb32-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-40"><a href="#cb32-40" aria-hidden="true" tabindex="-1"></a><span class="co"># Handle zero variance case</span></span>
+<span id="cb32-41"><a href="#cb32-41" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> julia_std <span class="op">==</span> <span class="fl">0</span> <span class="op">&amp;&amp;</span> r_std <span class="op">==</span> <span class="fl">0</span></span>
+<span id="cb32-42"><a href="#cb32-42" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Both have zero variance - just check if means are equal</span></span>
+<span id="cb32-43"><a href="#cb32-43" aria-hidden="true" tabindex="-1"></a>    pass <span class="op">=</span> mean_diff <span class="op">&lt;</span> <span class="fl">1e-10</span></span>
+<span id="cb32-44"><a href="#cb32-44" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Distribution comparison:"</span>)</span>
+<span id="cb32-45"><a href="#cb32-45" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"Julia: </span><span class="sc">$</span>(<span class="fu">round</span>(julia_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(julia_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
+<span id="cb32-46"><a href="#cb32-46" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"R:     </span><span class="sc">$</span>(<span class="fu">round</span>(r_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(r_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
+<span id="cb32-47"><a href="#cb32-47" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"Mean diff: </span><span class="sc">$</span>(<span class="fu">round</span>(mean_diff, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">"</span>)</span>
+<span id="cb32-48"><a href="#cb32-48" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> pass</span>
+<span id="cb32-49"><a href="#cb32-49" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"✅ PASS - Both implementations give identical deterministic results"</span>)</span>
+<span id="cb32-50"><a href="#cb32-50" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb32-51"><a href="#cb32-51" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"❌ FAIL - Different deterministic results"</span>)</span>
+<span id="cb32-52"><a href="#cb32-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb32-53"><a href="#cb32-53" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb32-54"><a href="#cb32-54" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use standard error test for stochastic cases</span></span>
+<span id="cb32-55"><a href="#cb32-55" aria-hidden="true" tabindex="-1"></a>    se <span class="op">=</span> <span class="fu">sqrt</span>(julia_std<span class="op">^</span><span class="fl">2</span> <span class="op">+</span> r_std<span class="op">^</span><span class="fl">2</span>) <span class="op">/</span> <span class="fu">sqrt</span>(n_samples)</span>
+<span id="cb32-56"><a href="#cb32-56" aria-hidden="true" tabindex="-1"></a>    pass <span class="op">=</span> mean_diff <span class="op">&lt;</span> <span class="fl">3</span> <span class="op">*</span> se</span>
+<span id="cb32-57"><a href="#cb32-57" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb32-58"><a href="#cb32-58" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Distribution comparison:"</span>)</span>
+<span id="cb32-59"><a href="#cb32-59" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"Julia: </span><span class="sc">$</span>(<span class="fu">round</span>(julia_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(julia_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
+<span id="cb32-60"><a href="#cb32-60" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"R:     </span><span class="sc">$</span>(<span class="fu">round</span>(r_mean, digits<span class="op">=</span><span class="fl">4</span>))<span class="st"> ± </span><span class="sc">$</span>(<span class="fu">round</span>(r_std, digits<span class="op">=</span><span class="fl">4</span>))<span class="st">"</span>)</span>
+<span id="cb32-61"><a href="#cb32-61" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"Mean diff: </span><span class="sc">$</span>(<span class="fu">round</span>(mean_diff, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">, SE: </span><span class="sc">$</span>(<span class="fu">round</span>(se, digits<span class="op">=</span><span class="fl">6</span>))<span class="st">"</span>)</span>
+<span id="cb32-62"><a href="#cb32-62" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb32-63"><a href="#cb32-63" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> pass</span>
+<span id="cb32-64"><a href="#cb32-64" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb32-65"><a href="#cb32-65" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb32-66"><a href="#cb32-66" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb32-67"><a href="#cb32-67" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb32-68"><a href="#cb32-68" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 8️⃣ Testing RWMH_xi (Stochastic)
@@ -752,10 +776,10 @@ Running Julia version 1000 times...
 Running R version 1000 times...
 
 Distribution comparison:
-Julia: 18.0 ± 0.0
-R:     18.0 ± 0.0
-Mean diff: 0.0, SE: 0.0
-❌ FAIL</code></pre>
+Julia: 87.999 ± 0.0316
+R:     87.998 ± 0.0447
+Mean diff: 0.001, SE: 0.001731
+✅ PASS</code></pre>
 </div>
 </div>
 </section>
@@ -763,86 +787,86 @@ Mean diff: 0.0, SE: 0.0
 <h1>Test 9: TestMatAsFieldProposal</h1>
 <p>Field modification function - compare modified fields.</p>
 <div id="32" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">9️⃣ Testing TestMatAsFieldProposal"</span>)</span>
-<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>xi <span class="op">=</span> <span class="fl">15</span></span>
-<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>xiCan <span class="op">=</span> <span class="fl">18</span></span>
-<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia version</span></span>
-<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>TestFieldProposal_julia <span class="op">=</span> <span class="fu">deepcopy</span>(TestField)</span>
-<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a><span class="fu">TestMatAsFieldProposal</span>(TestFieldProposal_julia, TestField, TestTimes, xi, xiCan, m)</span>
-<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, TestFieldProposal_julia)</span>
-<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a><span class="co"># R version</span></span>
-<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> TestField TestTimes xi xiCan m</span>
-<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
-<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a><span class="st">TestFieldProposal_r &lt;- TestField</span></span>
-<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a><span class="st">TestMatAsFieldProposal(TestFieldProposal_r, TestField, TestTimes, xi, xiCan, m)</span></span>
-<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a><span class="st"># Convert to list of matrices</span></span>
-<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a><span class="st">TestFieldProposal_r &lt;- lapply(TestFieldProposal_r, function(x) matrix(x, ncol=ncol(x)))</span></span>
-<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
-<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a>TestFieldProposal_r <span class="op">=</span> <span class="pp">@rget</span> TestFieldProposal_r</span>
-<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, TestFieldProposal_r)</span>
-<span id="cb33-20"><a href="#cb33-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-21"><a href="#cb33-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare the modified TestFieldProposal</span></span>
-<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result length: "</span>, <span class="fu">length</span>(TestFieldProposal_julia))</span>
-<span id="cb33-23"><a href="#cb33-23" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result length:     "</span>, <span class="fu">length</span>(TestFieldProposal_r))</span>
-<span id="cb33-24"><a href="#cb33-24" aria-hidden="true" tabindex="-1"></a>proposal_match <span class="op">=</span> <span class="cn">true</span></span>
-<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="fu">length</span>(TestFieldProposal_julia) <span class="op">!=</span> <span class="fu">length</span>(TestFieldProposal_r)</span>
-<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL - Different number of fields"</span>)</span>
-<span id="cb33-28"><a href="#cb33-28" aria-hidden="true" tabindex="-1"></a>    proposal_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb33-29"><a href="#cb33-29" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb33-30"><a href="#cb33-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(TestFieldProposal_julia)</span>
-<span id="cb33-31"><a href="#cb33-31" aria-hidden="true" tabindex="-1"></a>        j_field <span class="op">=</span> TestFieldProposal_julia[i]</span>
-<span id="cb33-32"><a href="#cb33-32" aria-hidden="true" tabindex="-1"></a>        r_field <span class="op">=</span> TestFieldProposal_r[i]</span>
-<span id="cb33-33"><a href="#cb33-33" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb33-34"><a href="#cb33-34" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"Field </span><span class="sc">$</span>i<span class="st"> - Julia size: "</span>, <span class="fu">size</span>(j_field), <span class="st">", R size: "</span>, <span class="fu">size</span>(r_field))</span>
-<span id="cb33-35"><a href="#cb33-35" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb33-36"><a href="#cb33-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="fu">size</span>(j_field) <span class="op">!=</span> <span class="fu">size</span>(r_field)</span>
-<span id="cb33-37"><a href="#cb33-37" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"  ❌ Size mismatch"</span>)</span>
-<span id="cb33-38"><a href="#cb33-38" aria-hidden="true" tabindex="-1"></a>            proposal_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb33-39"><a href="#cb33-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
-<span id="cb33-40"><a href="#cb33-40" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Compare element-wise, handling NaN and Missing</span></span>
-<span id="cb33-41"><a href="#cb33-41" aria-hidden="true" tabindex="-1"></a>            max_diff <span class="op">=</span> <span class="fl">0.0</span></span>
-<span id="cb33-42"><a href="#cb33-42" aria-hidden="true" tabindex="-1"></a>            n_compared <span class="op">=</span> <span class="fl">0</span></span>
-<span id="cb33-43"><a href="#cb33-43" aria-hidden="true" tabindex="-1"></a>            </span>
-<span id="cb33-44"><a href="#cb33-44" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> idx <span class="kw">in</span> <span class="fu">CartesianIndices</span>(j_field)</span>
-<span id="cb33-45"><a href="#cb33-45" aria-hidden="true" tabindex="-1"></a>                j_val <span class="op">=</span> j_field[idx]</span>
-<span id="cb33-46"><a href="#cb33-46" aria-hidden="true" tabindex="-1"></a>                r_val <span class="op">=</span> r_field[idx]</span>
-<span id="cb33-47"><a href="#cb33-47" aria-hidden="true" tabindex="-1"></a>                </span>
-<span id="cb33-48"><a href="#cb33-48" aria-hidden="true" tabindex="-1"></a>                j_missing <span class="op">=</span> <span class="fu">isnan</span>(j_val)</span>
-<span id="cb33-49"><a href="#cb33-49" aria-hidden="true" tabindex="-1"></a>                r_missing <span class="op">=</span> <span class="fu">ismissing</span>(r_val) <span class="op">||</span> (r_val isa <span class="dt">Float64</span> <span class="op">&amp;&amp;</span> <span class="fu">isnan</span>(r_val))</span>
-<span id="cb33-50"><a href="#cb33-50" aria-hidden="true" tabindex="-1"></a>                </span>
-<span id="cb33-51"><a href="#cb33-51" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> j_missing <span class="op">&amp;&amp;</span> r_missing</span>
-<span id="cb33-52"><a href="#cb33-52" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
-<span id="cb33-53"><a href="#cb33-53" aria-hidden="true" tabindex="-1"></a>                <span class="cf">elseif</span> j_missing <span class="op">||</span> r_missing</span>
-<span id="cb33-54"><a href="#cb33-54" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">println</span>(<span class="st">"  ❌ Mismatch at </span><span class="sc">$</span>idx<span class="st">: Julia=</span><span class="sc">$</span>j_val<span class="st">, R=</span><span class="sc">$</span>r_val<span class="st">"</span>)</span>
-<span id="cb33-55"><a href="#cb33-55" aria-hidden="true" tabindex="-1"></a>                    proposal_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb33-56"><a href="#cb33-56" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">break</span></span>
-<span id="cb33-57"><a href="#cb33-57" aria-hidden="true" tabindex="-1"></a>                <span class="cf">else</span></span>
-<span id="cb33-58"><a href="#cb33-58" aria-hidden="true" tabindex="-1"></a>                    diff <span class="op">=</span> <span class="fu">abs</span>(j_val <span class="op">-</span> r_val)</span>
-<span id="cb33-59"><a href="#cb33-59" aria-hidden="true" tabindex="-1"></a>                    max_diff <span class="op">=</span> <span class="fu">max</span>(max_diff, diff)</span>
-<span id="cb33-60"><a href="#cb33-60" aria-hidden="true" tabindex="-1"></a>                    n_compared <span class="op">+=</span> <span class="fl">1</span></span>
-<span id="cb33-61"><a href="#cb33-61" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
-<span id="cb33-62"><a href="#cb33-62" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
-<span id="cb33-63"><a href="#cb33-63" aria-hidden="true" tabindex="-1"></a>            </span>
-<span id="cb33-64"><a href="#cb33-64" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> n_compared <span class="op">&gt;</span> <span class="fl">0</span></span>
-<span id="cb33-65"><a href="#cb33-65" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  Max diff: </span><span class="sc">$</span>max_diff<span class="st"> (compared </span><span class="sc">$</span>n_compared<span class="st"> values)"</span>)</span>
-<span id="cb33-66"><a href="#cb33-66" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> max_diff <span class="op">&gt;</span> <span class="fl">1e-10</span></span>
-<span id="cb33-67"><a href="#cb33-67" aria-hidden="true" tabindex="-1"></a>                    proposal_match <span class="op">=</span> <span class="cn">false</span></span>
-<span id="cb33-68"><a href="#cb33-68" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
-<span id="cb33-69"><a href="#cb33-69" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span></span>
-<span id="cb33-70"><a href="#cb33-70" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  All values are missing/NaN"</span>)</span>
-<span id="cb33-71"><a href="#cb33-71" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
-<span id="cb33-72"><a href="#cb33-72" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
-<span id="cb33-73"><a href="#cb33-73" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
-<span id="cb33-74"><a href="#cb33-74" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
-<span id="cb33-75"><a href="#cb33-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-76"><a href="#cb33-76" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> proposal_match</span>
-<span id="cb33-77"><a href="#cb33-77" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
-<span id="cb33-78"><a href="#cb33-78" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
-<span id="cb33-79"><a href="#cb33-79" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
-<span id="cb33-80"><a href="#cb33-80" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">9️⃣ Testing TestMatAsFieldProposal"</span>)</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>xi <span class="op">=</span> <span class="fl">15</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>xiCan <span class="op">=</span> <span class="fl">18</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Julia version</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>TestFieldProposal_julia <span class="op">=</span> <span class="fu">deepcopy</span>(TestField)</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="fu">TestMatAsFieldProposal</span>(TestFieldProposal_julia, TestField, TestTimes, xi, xiCan, m)</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result: "</span>, TestFieldProposal_julia)</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a><span class="co"># R version</span></span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a><span class="pp">@rput</span> TestField TestTimes xi xiCan m</span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>R<span class="st">"""</span></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a><span class="st">TestFieldProposal_r &lt;- TestField</span></span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a><span class="st">TestMatAsFieldProposal(TestFieldProposal_r, TestField, TestTimes, xi, xiCan, m)</span></span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a><span class="st"># Convert to list of matrices</span></span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a><span class="st">TestFieldProposal_r &lt;- lapply(TestFieldProposal_r, function(x) matrix(x, ncol=ncol(x)))</span></span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a><span class="st">"""</span></span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>TestFieldProposal_r <span class="op">=</span> <span class="pp">@rget</span> TestFieldProposal_r</span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result:     "</span>, TestFieldProposal_r)</span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare the modified TestFieldProposal</span></span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Julia result length: "</span>, <span class="fu">length</span>(TestFieldProposal_julia))</span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R result length:     "</span>, <span class="fu">length</span>(TestFieldProposal_r))</span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>proposal_match <span class="op">=</span> <span class="cn">true</span></span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="fu">length</span>(TestFieldProposal_julia) <span class="op">!=</span> <span class="fu">length</span>(TestFieldProposal_r)</span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL - Different number of fields"</span>)</span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>    proposal_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fu">length</span>(TestFieldProposal_julia)</span>
+<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>        j_field <span class="op">=</span> TestFieldProposal_julia[i]</span>
+<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>        r_field <span class="op">=</span> TestFieldProposal_r[i]</span>
+<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>        <span class="fu">println</span>(<span class="st">"Field </span><span class="sc">$</span>i<span class="st"> - Julia size: "</span>, <span class="fu">size</span>(j_field), <span class="st">", R size: "</span>, <span class="fu">size</span>(r_field))</span>
+<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="fu">size</span>(j_field) <span class="op">!=</span> <span class="fu">size</span>(r_field)</span>
+<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a>            <span class="fu">println</span>(<span class="st">"  ❌ Size mismatch"</span>)</span>
+<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a>            proposal_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span></span>
+<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Compare element-wise, handling NaN and Missing</span></span>
+<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a>            max_diff <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a>            n_compared <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb34-44"><a href="#cb34-44" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> idx <span class="kw">in</span> <span class="fu">CartesianIndices</span>(j_field)</span>
+<span id="cb34-45"><a href="#cb34-45" aria-hidden="true" tabindex="-1"></a>                j_val <span class="op">=</span> j_field[idx]</span>
+<span id="cb34-46"><a href="#cb34-46" aria-hidden="true" tabindex="-1"></a>                r_val <span class="op">=</span> r_field[idx]</span>
+<span id="cb34-47"><a href="#cb34-47" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb34-48"><a href="#cb34-48" aria-hidden="true" tabindex="-1"></a>                j_missing <span class="op">=</span> <span class="fu">isnan</span>(j_val)</span>
+<span id="cb34-49"><a href="#cb34-49" aria-hidden="true" tabindex="-1"></a>                r_missing <span class="op">=</span> <span class="fu">ismissing</span>(r_val) <span class="op">||</span> (r_val isa <span class="dt">Float64</span> <span class="op">&amp;&amp;</span> <span class="fu">isnan</span>(r_val))</span>
+<span id="cb34-50"><a href="#cb34-50" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb34-51"><a href="#cb34-51" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> j_missing <span class="op">&amp;&amp;</span> r_missing</span>
+<span id="cb34-52"><a href="#cb34-52" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
+<span id="cb34-53"><a href="#cb34-53" aria-hidden="true" tabindex="-1"></a>                <span class="cf">elseif</span> j_missing <span class="op">||</span> r_missing</span>
+<span id="cb34-54"><a href="#cb34-54" aria-hidden="true" tabindex="-1"></a>                    <span class="fu">println</span>(<span class="st">"  ❌ Mismatch at </span><span class="sc">$</span>idx<span class="st">: Julia=</span><span class="sc">$</span>j_val<span class="st">, R=</span><span class="sc">$</span>r_val<span class="st">"</span>)</span>
+<span id="cb34-55"><a href="#cb34-55" aria-hidden="true" tabindex="-1"></a>                    proposal_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb34-56"><a href="#cb34-56" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">break</span></span>
+<span id="cb34-57"><a href="#cb34-57" aria-hidden="true" tabindex="-1"></a>                <span class="cf">else</span></span>
+<span id="cb34-58"><a href="#cb34-58" aria-hidden="true" tabindex="-1"></a>                    diff <span class="op">=</span> <span class="fu">abs</span>(j_val <span class="op">-</span> r_val)</span>
+<span id="cb34-59"><a href="#cb34-59" aria-hidden="true" tabindex="-1"></a>                    max_diff <span class="op">=</span> <span class="fu">max</span>(max_diff, diff)</span>
+<span id="cb34-60"><a href="#cb34-60" aria-hidden="true" tabindex="-1"></a>                    n_compared <span class="op">+=</span> <span class="fl">1</span></span>
+<span id="cb34-61"><a href="#cb34-61" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
+<span id="cb34-62"><a href="#cb34-62" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
+<span id="cb34-63"><a href="#cb34-63" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb34-64"><a href="#cb34-64" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> n_compared <span class="op">&gt;</span> <span class="fl">0</span></span>
+<span id="cb34-65"><a href="#cb34-65" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  Max diff: </span><span class="sc">$</span>max_diff<span class="st"> (compared </span><span class="sc">$</span>n_compared<span class="st"> values)"</span>)</span>
+<span id="cb34-66"><a href="#cb34-66" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> max_diff <span class="op">&gt;</span> <span class="fl">1e-10</span></span>
+<span id="cb34-67"><a href="#cb34-67" aria-hidden="true" tabindex="-1"></a>                    proposal_match <span class="op">=</span> <span class="cn">false</span></span>
+<span id="cb34-68"><a href="#cb34-68" aria-hidden="true" tabindex="-1"></a>                <span class="cf">end</span></span>
+<span id="cb34-69"><a href="#cb34-69" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span></span>
+<span id="cb34-70"><a href="#cb34-70" aria-hidden="true" tabindex="-1"></a>                <span class="fu">println</span>(<span class="st">"  All values are missing/NaN"</span>)</span>
+<span id="cb34-71"><a href="#cb34-71" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
+<span id="cb34-72"><a href="#cb34-72" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb34-73"><a href="#cb34-73" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb34-74"><a href="#cb34-74" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb34-75"><a href="#cb34-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-76"><a href="#cb34-76" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> proposal_match</span>
+<span id="cb34-77"><a href="#cb34-77" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"✅ PASS"</span>)</span>
+<span id="cb34-78"><a href="#cb34-78" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span></span>
+<span id="cb34-79"><a href="#cb34-79" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(<span class="st">"❌ FAIL"</span>)</span>
+<span id="cb34-80"><a href="#cb34-80" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 9️⃣ Testing TestMatAsFieldProposal
@@ -877,7 +901,7 @@ Field 10 - Julia size: (10, 4), R size: (10, 4)
 <section id="summary" class="level1">
 <h1>Summary</h1>
 <div id="34" class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">🏁 All tests completed!"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">🏁 All tests completed!"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 🏁 All tests completed!</code></pre>

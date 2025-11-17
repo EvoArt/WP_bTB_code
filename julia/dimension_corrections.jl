@@ -4,8 +4,8 @@
 Critical corrections for dimension issues in the C++ to Julia conversions.
 These address potential problems with row/column vectors and matrix operations.
 """
-
-## Helper Functions with 1-based indexing
+# Mathematical helper functions
+# Note: logit and logistic are provided by StatsFuns package
 
 """
 Create a vector indicating season for each time point with 1-based indexing.
@@ -712,9 +712,9 @@ function logPost_(logPars, G,
                 a = alpha_js[g]
                 loglik += log_pti + safe_log1mexp(a + b * inf_mgt)
             elseif (z_t_1 == 3) && (z_t == 3)
-                loglik += log_pti + log(1 - cdf(Erlang(k, tau/k), 1))
+                loglik += log_pti + log(1 - cdf(Erlang(k, k/tau), 1))
             elseif (z_t_1 == 3) && (z_t == 1)
-                loglik += log_pti + log(cdf(Erlang(k, tau/k), 1))
+                loglik += log_pti + log(cdf(Erlang(k, k/tau), 1))
             elseif (z_t_1 == 1) && (z_t == 1)
                 loglik += log_pti
             end
@@ -741,12 +741,12 @@ function logPost_(logPars, G,
     end
     lambda_prior = -hp_lambda[2] * lambda + log(lambda)  # C++: hp_lambda[1]
     
-    b_prior = logpdf(Gamma(hp_beta[1], 1/hp_beta[2]), b) + log(b)  # C++: hp_beta[0], 1/hp_beta[1]
+    b_prior = logpdf(Gamma(hp_beta[1], hp_beta[2]), b) + log(b)  # C++: hp_beta[0], 1/hp_beta[1]
     q_prior = hp_q[1] * ql - (hp_q[1] + hp_q[2]) * log(1 + exp(ql))  # C++: hp_q[0], hp_q[1]
-    tau_prior = logpdf(Gamma(hp_tau[1], 1/hp_tau[2]), tau) + log(tau)
-    a2_prior = logpdf(Gamma(hp_a2[1], 1/hp_a2[2]), a2) + log(a2)
-    b2_prior = logpdf(Gamma(hp_b2[1], 1/hp_b2[2]), b2) + log(b2)
-    c1_prior = logpdf(Gamma(hp_c1[1], 1/hp_c1[2]), c1) + log(c1)
+    tau_prior = logpdf(Gamma(hp_tau[1], hp_tau[2]), tau) + log(tau)
+    a2_prior = logpdf(Gamma(hp_a2[1], hp_a2[2]), a2) + log(a2)
+    b2_prior = logpdf(Gamma(hp_b2[1], hp_b2[2]), b2) + log(b2)
+    c1_prior = logpdf(Gamma(hp_c1[1], hp_c1[2]), c1) + log(c1)
     
     logprior = a_prior + lambda_prior + b_prior + q_prior + tau_prior +
                a2_prior + b2_prior + c1_prior
@@ -994,6 +994,81 @@ function gradThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod,
     return grad
 end
 
+
+function gradThetasRhos2(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho)
+    
+    m = size(X, 1)
+    numTests = size(TestField[1], 2)
+    idxTests = 1:numTests  # Julia is 1-based
+    
+    derivloglik = zeros(Float64, 2 * numTests)
+    rows = Vector{Int64}(undef, size(X, 2))
+    
+    for jj in 1:m  # Julia is 1-based
+        id = jj  # C++: id = jj+1L
+        TestMat_i = TestField[jj]
+        TestTimes_i = TestTimes[jj]
+        
+        t0 = startSamplingPeriod[jj] - 1  # C++: startSamplingPeriod[jj] - 1L
+        maxt_i = endSamplingPeriod[jj] - t0
+        
+        for tt in 0:maxt_i-1  # C++: tt=0; tt<maxt_i; tt++
+            # Find rows where TestTimes_i - t0 == tt+1
+            n_row = 0
+            for it in 1:size(TestTimes_i, 1)
+                if TestTimes_i[it] - t0 == tt + 1
+                    n_row += 1
+                    rows[it] = it
+                end
+            end
+            
+            if n_row > 0
+                TestMat_i_tt = TestMat_i[rows[1:n_row], :]
+                
+                for (ir_idx, ir) in enumerate(rows[1:n_row])
+                    Tests_ir = TestMat_i_tt[ir_idx, :]
+                    valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                    
+                    for ic in valid_tests
+                        i = ic  # Julia is 1-based
+                        
+                        if X[id, tt + t0 + 1] == 3  # Exposed state (C++: X(id-1,tt+t0)==3L)
+                            expThetaTilde = exp(logit(thetas[i]))
+                            expRhoTilde = exp(logit(rhos[i]))
+                            test_result = Tests_ir[i]
+                            
+                            # Derivatives wrt theta
+                            derivloglik[i] += test_result * (1 - thetas[i]) + 
+                                (1 - test_result) * (expThetaTilde / (1 + expThetaTilde + expRhoTilde) - thetas[i])
+                            
+                            # Derivatives wrt rho
+                            derivloglik[i + numTests] += test_result * (1 - rhos[i]) + 
+                                (1 - test_result) * (expRhoTilde / (1 + expThetaTilde + expRhoTilde) - rhos[i])
+                            
+                        elseif X[id, tt + t0 + 1] == 1  # Infectious state (C++: X(id-1,tt+t0)==1L)
+                            test_result = Tests_ir[i]
+                            
+                            # Derivatives wrt theta
+                            derivloglik[i] += test_result * (1 - thetas[i]) - 
+                                (1 - test_result) * thetas[i]
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    # Derivative of log prior with Jacobian
+    derivLogPriorWithJac = zeros(Float64, 2 * numTests)
+    for iTest in 1:numTests
+        derivLogPriorWithJac[iTest] = hp_theta[1] - (hp_theta[1] + hp_theta[2]) * thetas[iTest]
+        derivLogPriorWithJac[iTest + numTests] = hp_rho[1] - (hp_rho[1] + hp_rho[2]) * rhos[iTest]
+    end
+    
+    grad = derivloglik + derivLogPriorWithJac
+    return grad
+end
+
 """
     HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, TestField, TestTimes, hp_theta, hp_rho, epsilonsens, L)
 
@@ -1026,7 +1101,7 @@ function HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
     q = logit.(cur)
     
     # Half step for momentum
-    p = p + epsilonsens * gradThetasRhos(q_thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, 
+    p = p + epsilonsens * gradThetasRhos2(q_thetas, rhos, X, startSamplingPeriod, endSamplingPeriod, 
                                         TestField, TestTimes, hp_theta, hp_rho) / 2
     
     # Random number of leapfrog steps
@@ -1040,7 +1115,7 @@ function HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
             q_rhos[iTest] = logistic(q[iTest + numTests])
         end
         
-        p = p + epsilonsens * gradThetasRhos(q_thetas, q_rhos, X, startSamplingPeriod, endSamplingPeriod, 
+        p = p + epsilonsens * gradThetasRhos2(q_thetas, q_rhos, X, startSamplingPeriod, endSamplingPeriod, 
                                            TestField, TestTimes, hp_theta, hp_rho)
     end
     
@@ -1052,7 +1127,7 @@ function HMC_thetas_rhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
     end
     
     # Half step for momentum
-    p = p + epsilonsens * gradThetasRhos(q_thetas, q_rhos, X, startSamplingPeriod, endSamplingPeriod, 
+    p = p + epsilonsens * gradThetasRhos2(q_thetas, q_rhos, X, startSamplingPeriod, endSamplingPeriod, 
                                         TestField, TestTimes, hp_theta, hp_rho) / 2
     p = -p
     
@@ -1118,64 +1193,117 @@ end
     logPostXi(xiMin, xiMax, xi, hp_xi, TestField_, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
 
 Compute log posterior for xi (Brock changepoint) parameter.
+
+The Brock test has two versions (Brock1 and Brock2) that were used before and after a changepoint.
+This function calculates the likelihood of test results in the range [xiMin, xiMax) given:
+- The proposed changepoint xi
+- The test sensitivities (thetas), specificities (phis), and relative sensitivity for exposed (rhos)
+- The hidden infection states X
+
+The key insight: when xi changes, only test results in the range between the old and new xi 
+need to be re-evaluated, because outside this range the test assignments don't change.
+
 Ported from C++ logPostXi.cpp
 """
 function logPostXi(xiMin, xiMax, xi, hp_xi, TestField_, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
     
+    # m = number of individuals
     m = size(X, 1)
+    
+    # We only care about the first 2 test columns (Brock1 and Brock2)
     numBrockTests = 2
-    idxTests = 1:numBrockTests  # Julia is 1-based
+    idxTests = 1:numBrockTests  # Julia 1-based indexing
     
+    # Initialize log-likelihood
     logLik = 0.0
-    
-    for jj in 1:m  # Julia is 1-based, C++ was 0-based
-        id = jj  # C++: id = jj+1L
-        TestMat_i = TestField_[jj]
-        TestTimes_i = TestTimes[jj]
+
+    # Loop over all individuals
+    for jj in 1:m
+        id = jj  # Individual ID
+        TestMat_i = TestField_[jj]  # Test results for this individual (rows = test events, cols = test types)
+        TestTimes_i = TestTimes[jj]  # Times when tests were performed for this individual
         
-        t0 = startSamplingPeriod[jj] - 1  # C++: startSamplingPeriod[jj] - 1L
-        maxt_i = endSamplingPeriod[jj] - t0
+        # Sampling period for this individual
+        t0 = startSamplingPeriod[jj]-1  # Start of monitoring
+        maxt_i = endSamplingPeriod[jj] - t0  # Length of monitoring period
         
-        for tt in 0:maxt_i-1  # C++: tt=0; tt<maxt_i; tt++
-            if (tt + t0 + 1 >= xiMin) && (tt + t0 + 1 < xiMax)
-                # Find rows where TestTimes_i - t0 == tt+1
-                rows = findall(x -> x - t0 == tt + 1, TestTimes_i)
+        # Loop over time points in this individual's monitoring period
+        for tt in 1:maxt_i
+            # CRITICAL: Only evaluate likelihood for times in the range [xiMin, xiMax)
+            # This is the range where the changepoint proposal differs from the current value
+            # Outside this range, test assignments are identical for both xi values
+            if (tt + t0 >= xiMin) && (tt + t0 < xiMax)
                 
-                if length(rows) > 0
-                    TestMat_i_tt_allTests = TestMat_i[rows, :]
-                    TestMat_i_tt = TestMat_i_tt_allTests[:, idxTests]  # Brock test columns
+                # Find all test events that occurred at this time point
+                # TestTimes_i stores absolute times, so we need to match: TestTimes_i[row] - t0 == tt
+                rows = findall(x -> x - t0 == tt, TestTimes_i)
+            
+                # If there were test events at this time
+                if !isempty(rows)
+
+                    # Extract test results for these events
+                    TestMat_i_tt_allTests = TestMat_i[rows, :]  # All test types for these events
+                    TestMat_i_tt = TestMat_i_tt_allTests[:, idxTests]  # Only Brock1 and Brock2 columns
+                  # println(TestMat_i_tt)
                     
-                    for (ir_idx, ir) in enumerate(rows)
-                        Tests_ir = TestMat_i_tt[ir_idx, :]
-                        valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                    # Loop over each test event (row) at this time
+                    for ir in 1:length(rows)
+                        Tests_ir = TestMat_i_tt[ir, :]  # Test results for this event (Brock1, Brock2)
                         
-                        for ic in valid_tests
-                            i = ic  # Julia is 1-based
+                        # Find which Brock tests were actually performed (not missing)
+                        # Test results are coded as: 0 = negative, 1 = positive, NaN = not performed
+                        idx = [i for i in idxTests if ((Tests_ir[i] == 0) || (Tests_ir[i] == 1))]
+                       # println("size(idx): $(size(idx))")
+                        
+                        # For each performed test, add its likelihood contribution
+                        for i in idx
                             
-                            if X[id, tt + t0 + 1] == 0  # Susceptible (C++: X(id-1,tt+t0)==0L)
-                                test_result = Tests_ir[i]
-                                logLik += log((1 - phis[i])^test_result * 
-                                            phis[i]^(1 - test_result))
-                            elseif X[id, tt + t0 + 1] == 3  # Exposed (C++: X(id-1,tt+t0)==3L)
-                                test_result = Tests_ir[i]
-                                logLik += log((thetas[i] * rhos[i])^test_result * 
-                                            (1 - thetas[i] * rhos[i])^(1 - test_result))
-                            elseif X[id, tt + t0 + 1] == 1  # Infectious (C++: X(id-1,tt+t0)==1L)
-                                test_result = Tests_ir[i]
-                                logLik += log(thetas[i]^test_result * 
-                                            (1 - thetas[i])^(1 - test_result))
+                            # Get the hidden infection state at this time
+                            state = X[id, tt + t0]  # 0=Susceptible, 1=Infectious, 3=Exposed
+                            test_result = TestMat_i_tt[ir, i]  # 0=negative, 1=positive
+                          #  println("state: $state, test_result: $test_result")
+                            
+                            # Calculate likelihood based on state and test result
+                            # Using test sensitivity (theta) and specificity (1-phi)
+                            
+                            if state == 0  # Susceptible (truly negative)
+                                # P(test=1|S) = 1-specificity = phi (false positive rate)
+                                # P(test=0|S) = specificity = 1-phi
+                                logLik += log(
+                                    (1 - phis[i])^test_result *  # If positive: false positive
+                                    phis[i]^(1 - test_result)     # If negative: true negative
+                                )
+                                
+                            elseif state == 3  # Exposed (early infection, reduced sensitivity)
+                                # P(test=1|E) = theta * rho (sensitivity reduced by factor rho)
+                                # P(test=0|E) = 1 - theta * rho
+                                logLik += log(
+                                    (thetas[i] * rhos[i])^test_result * 
+                                    (1 - thetas[i] * rhos[i])^(1 - test_result)
+                                )
+                                
+                            elseif state == 1  # Infectious (truly positive)
+                                # P(test=1|I) = theta (sensitivity)
+                                # P(test=0|I) = 1 - theta (false negative)
+                                logLik += log(
+                                    thetas[i]^test_result * 
+                                    (1 - thetas[i])^(1 - test_result)
+                                )
                             end
                         end
                     end
                 end
-            end  # end if
+            end  # end if time in range [xiMin, xiMax)
         end
     end
     
-    # Log prior for xi (normal distribution)
-    xiLogPrior = logpdf(Normal(hp_xi[1], hp_xi[2]), xi)
+    # Add log prior for xi (normal distribution)
+    # hp_xi = [mean, sd]
+    xiLogPrior = logpdf(Normal(hp_xi[1], hp_xi[2]), Float64(xi))
     
+    # Log posterior = log likelihood + log prior
     logPost = logLik + xiLogPrior
+
     return logPost
 end
 
@@ -1183,37 +1311,58 @@ end
     RWMH_xi(can, cur, hp_xi, TestFieldProposal, TestField, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
 
 Random walk Metropolis-Hastings update for xi (Brock changepoint) parameter.
+
+This function implements the Metropolis-Hastings accept/reject step for updating the changepoint.
+The key efficiency: we only need to evaluate the likelihood in the range [xiMin, xiMax) where
+the two changepoint values differ, because outside this range the test assignments are identical.
+
+Arguments:
+- can: candidate (proposed) changepoint value
+- cur: current changepoint value
+- TestFieldProposal: test data with Brock1/Brock2 assigned according to candidate changepoint
+- TestField: test data with Brock1/Brock2 assigned according to current changepoint
+
 Ported from C++ RWMH_xi.cpp
 """
 function RWMH_xi(can, cur, hp_xi, TestFieldProposal, TestField, TestTimes, thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
     
-    # Range where changes in xi modify likelihood
+    # Determine the range [xiMin, xiMax) where the two changepoint values differ
+    # This is the only range where we need to re-evaluate the likelihood
     if can < cur
-        xiMin = can
+        xiMin = can  # Candidate is earlier
         xiMax = cur
     else
-        xiMin = cur
+        xiMin = cur  # Current is earlier
         xiMax = can
     end
     
+    # Diagnostic: check how many tests fall in this window
+
+    # Calculate log posterior difference
+    # For candidate: use TestFieldProposal (Brock tests assigned according to 'can')
+    # For current: use TestField (Brock tests assigned according to 'cur')
     logpostDiff = logPostXi(xiMin, xiMax, can, hp_xi, TestFieldProposal, TestTimes, 
                            thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod) - 
                   logPostXi(xiMin, xiMax, cur, hp_xi, TestField, TestTimes,  
                            thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
     
-    prob = exp(logpostDiff)
-    alpha = min(1.0, prob)
-    u = rand()
+    # Metropolis-Hastings acceptance probability
+    prob = exp(logpostDiff)  # Posterior ratio
+    alpha = min(1.0, prob)   # Accept with probability min(1, ratio)
+    u = rand()               # Uniform(0,1) random number
     
+    # Accept or reject the proposal
     if u < alpha
+        # ACCEPT: use candidate changepoint
         out = can
-        # Update TestField to be the proposal
+        # Update TestField to match the proposal (for next iteration)
         for i in 1:length(TestField)
             TestField[i] = copy(TestFieldProposal[i])
         end
     else
+        # REJECT: keep current changepoint
         out = cur
-        # Revert TestFieldProposal to be TestField
+        # Revert TestFieldProposal to match current (for next iteration)
         for i in 1:length(TestFieldProposal)
             TestFieldProposal[i] = copy(TestField[i])
         end

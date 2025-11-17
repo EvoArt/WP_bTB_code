@@ -1,4 +1,3 @@
-using SpecialFunctions, Distributions
 function iFFBS_(alpha_js, 
             b, q, tau,k, K,
             probDyingMat,
@@ -124,7 +123,7 @@ function iFFBS_(alpha_js,
   filtProb[t0,:] .= unnormFiltProb ./ sum(unnormFiltProb)
   
   # Handle NaN probabilities - set to uniform as fallback
-  if any(isnan.(filtProb[t0,:]))
+  if any(isnan, filtProb[t0,:])
     println("WARNING: NaN filtering probabilities detected, setting to uniform")
     filtProb[t0,:] .= [0.25, 0.25, 0.25, 0.25]
   end
@@ -164,7 +163,7 @@ function iFFBS_(alpha_js,
       end
       
       filtProb[tt+t0,:] .= unnormFiltProb ./ sum(unnormFiltProb)
-      if any(isnan.(filtProb[tt+t0,:])) & (hitnan == false)
+      if any(isnan,filtProb[tt+t0,:]) & (hitnan == false)
         hitnan = true
         println("p00 = $p00")
         println("p01 = $p01")
@@ -267,7 +266,7 @@ function iFFBS_(alpha_js,
   probs =  filtProb[endTime,:]
   
   # Additional safety check for probs before sampling
-  if any(isnan.(probs)) || any(isinf.(probs))
+  if any(isnan,probs) || any(isinf,probs)
     # Replace any NaN/Inf with uniform distribution
     println("⚠️  NUMERICAL ISSUE in backward sampling for id=$id at endTime=$endTime")
     println("   probs: $probs")
@@ -285,7 +284,7 @@ function iFFBS_(alpha_js,
   println("predProb = $(predProb[1:4,:])")
   =#
   ##println(sum(isnan.(logProbStoEgivenSorE)))
-  if sum(isnan.(probs))>50
+  if sum(isnan,probs)>50
     println("Soc group:")
     println(SocGroup[id, :])
     println("filtProb = $(filtProb)")
@@ -371,7 +370,8 @@ function iFFBS_(alpha_js,
       probs = [probSuscep_t, probE_t, probI_t, probDead_t]
       
       # Handle NaN/Inf probabilities - set to uniform as fallback
-      if any(isnan.(probs)) || any(isinf.(probs))
+      # Using any(f, collection) avoids allocating intermediate boolean array
+      if any(isnan, probs) || any(isinf, probs)
           println("WARNING: NaN/Inf sampling probabilities detected, setting to uniform")
           probs = [0.25, 0.25, 0.25, 0.25]
       end

@@ -449,8 +449,8 @@ println("\n8️⃣ Testing RWMH_xi (Stochastic)")
 println("This function has random components - comparing distributions...")
 
 # Use varied inputs to create stochastic behavior
-xi_cur = 15
-xi_can = 12  # Lower value to create rejection probability
+xi_cur = 87
+xi_can = 88  # Lower value to create rejection probability
 n_samples = 1000
 
 # Run Julia version n_samples times

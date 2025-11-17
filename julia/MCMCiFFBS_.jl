@@ -139,19 +139,45 @@ function MCMCiFFBS_(N,
     nParsThetasRhos = 2*numTests # thetas, rhos
     
     # Validate hyperparameter vectors
-    length(hp_lambda) == 2 || error("hp_lambda must be a vector of 2 hyperparameters")
-    length(hp_beta) == 2 || error("hp_beta must be a vector of 2 hyperparameters")
-    length(hp_q) == 2 || error("hp_q must be a vector of 2 hyperparameters")
-    length(hp_tau) == 2 || error("hp_tau must be a vector of 2 hyperparameters")
-    length(hp_a2) == 2 || error("hp_a2 must be a vector of 2 hyperparameters")
-    length(hp_b2) == 2 || error("hp_b2 must be a vector of 2 hyperparameters")
-    length(hp_c1) == 2 || error("hp_c1 must be a vector of 2 hyperparameters")
-    length(hp_nu) == 3 || error("hp_nu must be a vector of 3 hyperparameters")
-    length(hp_xi) == 2 || error("hp_xi must be a vector of 2 hyperparameters")
-    length(hp_theta) == 2 || error("hp_theta must be a vector of 2 hyperparameters")
-    length(hp_rho) == 2 || error("hp_rho must be a vector of 2 hyperparameters")
-    length(hp_phi) == 2 || error("hp_phi must be a vector of 2 hyperparameters")
-    length(hp_eta) == 2 || error("hp_eta must be a vector of 2 hyperparameters")
+    if length(hp_lambda) != 2
+        error("hp_lambda must be a vector of 2 hyperparameters")
+    end
+    if length(hp_beta) != 2
+        error("hp_beta must be a vector of 2 hyperparameters")
+    end
+    if length(hp_q) != 2
+        error("hp_q must be a vector of 2 hyperparameters")
+    end
+    if length(hp_tau) != 2
+        error("hp_tau must be a vector of 2 hyperparameters")
+    end
+    if length(hp_a2) != 2
+        error("hp_a2 must be a vector of 2 hyperparameters")
+    end
+    if length(hp_b2) != 2
+        error("hp_b2 must be a vector of 2 hyperparameters")
+    end
+    if length(hp_c1) != 2
+        error("hp_c1 must be a vector of 2 hyperparameters")
+    end
+    if length(hp_nu) != 3
+        error("hp_nu must be a vector of 3 hyperparameters")
+    end
+    if length(hp_xi) != 2
+        error("hp_xi must be a vector of 2 hyperparameters")
+    end
+    if length(hp_theta) != 2
+        error("hp_theta must be a vector of 2 hyperparameters")
+    end
+    if length(hp_rho) != 2
+        error("hp_rho must be a vector of 2 hyperparameters")
+    end
+    if length(hp_phi) != 2
+        error("hp_phi must be a vector of 2 hyperparameters")
+    end
+    if length(hp_eta) != 2
+        error("hp_eta must be a vector of 2 hyperparameters")
+    end
     
     hp_nu_NumVec = hp_nu
     
@@ -237,14 +263,14 @@ function MCMCiFFBS_(N,
     else
         println("Initial parameter values generated from the prior: ")
         # need to check parametisation
-        lambdaInit = rand(Gamma(hp_lambda[1], 1/100))  # Match R: scale = 1/100
+        lambdaInit = rand(Gamma(hp_lambda[1], hp_lambda[2]))  # C++: Rf_rgamma(hp_lambda[0], 1/hp_lambda[1])
         alphaStarInit = rand(Gamma(1.0, 1.0))
-        betaInit = rand(Gamma(hp_beta[1], 1/100))  # Match R: scale = 1/100
+        betaInit = rand(Gamma(hp_beta[1], hp_beta[2]))  # C++: Rf_rgamma(hp_beta[0], 1/hp_beta[1])
         qInit = rand(Beta(hp_q[1], hp_q[2]))
-        tauInit = rand(Gamma(hp_tau[1], 1/hp_tau[2]))
-        a2Init = rand(Gamma(hp_a2[1], 1/100))  # Match R: scale = 1/100
-        b2Init = rand(Gamma(hp_b2[1], 1/100))  # Match R: scale = 1/100
-        c1Init = rand(Gamma(hp_c1[1], 1/100))  # Match R: scale = 1/100
+        tauInit = rand(Gamma(hp_tau[1], hp_tau[2]))
+        a2Init = rand(Gamma(hp_a2[1], hp_a2[2]))  # C++: Rf_rgamma(hp_a2[0], 1/hp_a2[1])
+        b2Init = rand(Gamma(hp_b2[1], hp_b2[2]))  # C++: Rf_rgamma(hp_b2[0], 1/hp_b2[1])
+        c1Init = rand(Gamma(hp_c1[1], hp_c1[2]))  # C++: Rf_rgamma(hp_c1[0], 1/hp_c1[1])
         
         # Match script: generate all nu parameters at once
         nuVecInit = rand(Dirichlet([8, 1, 1]), numNuTimes)
@@ -475,9 +501,6 @@ function MCMCiFFBS_(N,
     
     # Start MCMC iterations -------------------------------------------
     for iter in 1:N
-        if iter > 0 && (iter) % 100 == 0
-            println("iter: $(iter) out of N=$N")
-        end
         
         lambda = exp(pars[G+1])
         for g in 1:G
@@ -518,8 +541,8 @@ function MCMCiFFBS_(N,
             end
         end
         
-        logProbEtoE = log(1.0 - cdf(Erlang(k, tau/k), 1))
-        logProbEtoI = log(cdf(Erlang(k, tau/k), 1))
+        logProbEtoE = log(1.0 - cdf(Erlang(k, k/tau), 1))
+        logProbEtoI = log(cdf(Erlang(k, k/tau), 1))
         
         # Update probs from tt to tt+1 using new infection rates
         logProbStoSgivenSorE = zeros(Float64, G, maxt-1)
@@ -759,25 +782,20 @@ function MCMCiFFBS_(N,
         
         # Updating Brock changepoint -----------
         # Adapting proposal variance (0.44 acceptance rate target approach)
-        if iter > 0 && (iter) % 100 == 0 && count_accept_sd_xi < 3 && iter < 5000
+        if (iter > 0) && (iter % 100 == 0) && (count_accept_sd_xi < 3) && (iter < 5000)
             out0 = out[:, G+7+1+2*numNuTimes]
             vecSub = out0[iter-99:iter]
             d = diff(vecSub)
             
             ccc = Base.count(x -> x != 0, d)
             
-            acc = ccc / 99
-            
-            # Debug output
-            println("Debug: vecSub = $(vecSub)")
-            println("Debug: d = $(d)")
-            println("Debug: ccc = $ccc, acc = $acc")
+            acc = ccc / 99  # Match C++: fixed denominator
             
             if acc < 0.39
-                sd_xi = 0.9 * sd_xi
+                sd_xi = 0.9 * sd_xi  # Match C++: decrease if acceptance too low
                 count_accept_sd_xi = 0
             elseif acc > 0.49
-                sd_xi = 1.1 * sd_xi
+                sd_xi = 1.1 * sd_xi  # Match C++: increase if acceptance too high
                 count_accept_sd_xi = 0
             else
                 count_accept_sd_xi += 1
@@ -795,15 +813,17 @@ function MCMCiFFBS_(N,
         
         # if xiCan==xi, nothing has do be done
         # if xiCan is outside of the studyperiod, then reject it
-        if xiCan != xi && xiCan >= 1 && xiCan <= maxt-1
+        if (xiCan != xi) && (xiCan >= 1) && (xiCan <= maxt-1)
             # Function 'TestMatAsFieldProposal' corrects TestFieldProposal given the 
             # current TestField
             TestMatAsFieldProposal(TestFieldProposal, TestField, TestTimes, xi, xiCan, m)
-            
+             println("iter: $(iter); sd_xi: $sd_xi; xi: $xi; xiCan: $xiCan")
             # depending on the accept-reject step, either TestField or 
             # TestFieldProposal is updated accordingly in the function RWMH_xi:
             xi = RWMH_xi(xiCan, xi, hp_xi, TestFieldProposal, TestField, TestTimes, 
                         thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
+                  
+            println("iter: $(iter); sd_xi: $sd_xi; xi: $xi")
         end
         
         # Updating eta using Gibbs Sampling considering irregular trapping
@@ -903,13 +923,13 @@ function MCMCiFFBS_(N,
         # Removing Jacobian terms
         logPostPerIter[iter] -= (sum(pars) - pars[G+3]) + (ql - 2*log(1+exp(ql)))
         
-        lambda_prior = logpdf(Gamma(hp_lambda[1], 1/hp_lambda[2]), lambda)
-        b_prior = logpdf(Gamma(hp_beta[1], 1/hp_beta[2]), beta)
+        lambda_prior = logpdf(Gamma(hp_lambda[1], hp_lambda[2]), lambda)
+        b_prior = logpdf(Gamma(hp_beta[1], hp_beta[2]), beta)
         q_prior = logpdf(Beta(hp_q[1], hp_q[2]), q)
-        tau_prior = logpdf(Gamma(hp_tau[1], 1/hp_tau[2]), tau)
-        a2_prior = logpdf(Gamma(hp_a2[1], 1/hp_a2[2]), a2)
-        b2_prior = logpdf(Gamma(hp_b2[1], 1/hp_b2[2]), b2)
-        c1_prior = logpdf(Gamma(hp_c1[1], 1/hp_c1[2]), c1)
+        tau_prior = logpdf(Gamma(hp_tau[1], hp_tau[2]), tau)
+        a2_prior = logpdf(Gamma(hp_a2[1], hp_a2[2]), a2)
+        b2_prior = logpdf(Gamma(hp_b2[1], hp_b2[2]), b2)
+        c1_prior = logpdf(Gamma(hp_c1[1], hp_c1[2]), c1)
         
         logprior = a_prior + lambda_prior + b_prior + q_prior + tau_prior +
                    a2_prior + b2_prior + c1_prior
@@ -1081,12 +1101,20 @@ function MCMCiFFBS_(N,
         end
         
         # Saving temporary MCMC results in files
-        if (iter) % blockSize == 0
-            # File save notification removed
+        # Save every 100 iterations (overwrite) for quick recovery
+        if (iter) % 100 == 0
+            println("Saving checkpoint at iteration $(iter)...")
             
-            # Save results using JLD2 or similar serialization
-            # Note: In Julia, you might want to use JLD2.jl or BSON.jl for saving
-            # This is a placeholder for the actual saving logic
+            # Save as JLD2 (native Julia, faster)
+            jldsave(joinpath(path, "checkpoint.jld2");
+                    out = out[1:iter, :],
+                    logPostPerIter = logPostPerIter[1:iter],
+                    iter = iter)
+        end
+        
+        # Save every blockSize iterations (permanent blocks)
+        if (iter) % blockSize == 0
+            println("File with the first $(iter) iterations has been saved.")
             
             numFrom = string(iter-blockSize+1)
             numTo = string(iter)
@@ -1096,7 +1124,10 @@ function MCMCiFFBS_(N,
             block_dir = joinpath(path, block_)
             mkpath(block_dir)
             
-            # Save various results (placeholder - implement with actual serialization)
+            # Save main outputs (cumulative) - JLD2 format
+            jldsave(joinpath(path, "results.jld2");
+                    out = out[1:iter, :],
+                    logPostPerIter = logPostPerIter[1:iter])
             # save(joinpath(path, "postPars.jld2"), "out", out)
             # save(joinpath(path, "logPost.jld2"), "logPostPerIter", logPostPerIter)
             # etc.
@@ -1127,6 +1158,14 @@ function MCMCiFFBS_(N,
         end
         
     end # end MCMC iterations
+    
+    # Save final results
+    
+    println("Saving final results...")
+  #  jldsave(joinpath(path, "results_final.jld2");
+   #         out = out,
+    #        logPostPerIter = logPostPerIter)
+    println("MCMC completed. Final results saved to: $(joinpath(path, "results_final.jld2"))")
     
     return out
 end
