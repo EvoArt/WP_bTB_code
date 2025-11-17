@@ -97,7 +97,7 @@ function iFFBS_(alpha_js,
               # also logTransProbRest.row(t0) allocates.
     #logTransProbRest_row = logTransProbRest[t0,:]
     #transProbRest = normTransProbRest(logTransProbRest_row)
-    transProbRest = logTransProbRest[t0,:]
+    transProbRest = logTransProbRest[:,t0]
     normTransProbRest!(transProbRest)
     for s in 1:numStates
       unnormFiltProb[s] = corrector[t0,s] * predProb[t0,s] * transProbRest[s]
@@ -113,7 +113,7 @@ function iFFBS_(alpha_js,
   if sum(unnormFiltProb) == 0.0
     println("DEBUG: All filtered probabilities are zero for individual i=$id at time t0=$t0")
     println("DEBUG: oldStatus=$(X[id, t0]), predProb=$(predProb[t0,:]), transProbRest=$(transProbRest)")
-    println("DEBUG: corrector=$(corrector[t0,:]), logTransProbRest=$(logTransProbRest[t0,:])")
+    println("DEBUG: corrector=$(corrector[:,t0]), logTransProbRest=$(logTransProbRest[:,t0])")
     println("DEBUG: unnormFiltProb calculation:")
     for s in 1:numStates
       println("  State $s: corrector[$t0,$s]=$(corrector[t0,s]) * predProb[$t0,$s]=$(predProb[t0,s]) * transProbRest[$s]=$(transProbRest[s]) = $(unnormFiltProb[s])")
@@ -160,7 +160,7 @@ function iFFBS_(alpha_js,
       
       #logTransProbRest_row = logTransProbRest[tt+t0,:]
       #transProbRest = normTransProbRest(logTransProbRest_row)
-       transProbRest = logTransProbRest[tt+t0,:]
+       transProbRest = logTransProbRest[:,tt+t0]
       normTransProbRest!(transProbRest)
       # row major indexing pain
       for s in 1:numStates 
@@ -185,7 +185,7 @@ function iFFBS_(alpha_js,
         println("predProb WAS $(predProb[tt+t0-1,:])")
         println("transProbRest = $(transProbRest)")
         println("corrector = $(corrector[tt+t0,:])")
-        println("logTransProbRest = $(logTransProbRest[tt+t0,:])")
+        println("logTransProbRest = $(logTransProbRest[:,tt+t0])")
         println("logprobEtoE = $(logProbEtoE)")
         println("logprobEtoI = $(logProbEtoI)")
         println("prDeath = $prDeath")
@@ -234,7 +234,7 @@ function iFFBS_(alpha_js,
     if tt+t0 < maxt-1
       #logTransProbRest_row = logTransProbRest[tt+t0,:]
       #transProbRest = normTransProbRest(logTransProbRest_row)
-      transProbRest = logTransProbRest[tt+t0,:]
+      transProbRest = logTransProbRest[:,tt+t0]
       normTransProbRest!(transProbRest)
       for s in 1:numStates
         unnormFiltProb[s] = corrector[tt+t0,s] * predProb[tt+t0,s] * transProbRest[s]
@@ -609,10 +609,10 @@ function iFFBS_(alpha_js,
         if id == 1
           # Special case: individual 1 was excluded from logTransProbRest initialization
           # so we add zeros (equivalent to C++ logProbRest(tt,s,0L) which is uninitialized)
-          logTransProbRest[tt, s] += (0.0 - logProbRest[tt, s, idNext])
+          logTransProbRest[s, tt] += (0.0 - logProbRest[tt, s, idNext])
         else
           # Normal case: use the individual's contribution
-          logTransProbRest[tt, s] += (logProbRest[tt, s, id] - logProbRest[tt, s, idNext])
+          logTransProbRest[s, tt] += (logProbRest[tt, s, id] - logProbRest[tt, s, idNext])
         end
         logProbRest[tt, s, idNext] = 0.0
       end
@@ -631,7 +631,7 @@ function iFFBS_(alpha_js,
         if X[jj, tt] == 0.0
 
           for s in 1:numStates
-            logTransProbRest[tt, s] -= logProbRest[tt, s, jj]
+            logTransProbRest[s, tt] -= logProbRest[tt, s, jj]
           end
               
           g_1 = SocGroup[jj, tt]# do i need the -1 here? Dont think so
@@ -649,7 +649,7 @@ function iFFBS_(alpha_js,
         end
               
         for s in 1:numStates
-          logTransProbRest[tt, s] += logProbRest[tt, s, jj]
+          logTransProbRest[s, tt] += logProbRest[tt, s, jj]
         end
           
 

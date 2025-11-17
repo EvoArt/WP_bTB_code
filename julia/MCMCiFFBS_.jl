@@ -612,9 +612,10 @@ function MCMCiFFBS_(N,
             end
         end
         
-        logTransProbRest = zeros(Float64, maxt-1, 4)
+        logTransProbRest = zeros(Float64, 4, maxt-1)
         for jj in 2:m
-            logTransProbRest += logProbRest[:, :, jj]
+            #### need to not transpose, once ive changed logprobrest dims
+            logTransProbRest += transpose(logProbRest[:, :, jj])
         end
 
         for jj in 1:m
