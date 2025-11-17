@@ -875,6 +875,7 @@ function logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeri
     numTests = size(TestField[1], 2)
     idxTests = 1:numTests  # Julia is 1-based
     rows = Vector{Int64}(undef, size(X, 2))
+    valid_tests = Vector{Int64}(undef, numTests)
     
     logLik = 0.0
     
@@ -900,12 +901,20 @@ function logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeri
                 #### Whay allocate whole new array?
                 TestMat_i_tt = TestMat_i[rows[1:n_row], :]
                 
-                for (ir_idx, ir) in enumerate(rows[1:n_row])
+                for ir_idx in 1:n_row
                     Tests_ir = TestMat_i_tt[ir_idx, :]
-                    valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                    #valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                    n_test = 0
+                    for it in 1:numTests
+                        if (Tests_ir[it] == 0.0) || (Tests_ir[it] == 1.0)
+                            n_test += 1
+                            valid_tests[n_test] = it
+                        end
+                    end
                     
-                    for ic in valid_tests
-                        i = ic  # Julia is 1-based
+                    #for ic in valid_tests[1:n_test]
+                    for ic in 1:n_test#valid_tests[1:n_test]
+                        i = valid_tests[ic]  # Julia is 1-based
                         
                         if X[id, tt + t0 + 1] == 3  # Exposed state (C++: X(id-1,tt+t0)==3L)
                             test_result = Tests_ir[i]

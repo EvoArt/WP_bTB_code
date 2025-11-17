@@ -1050,9 +1050,9 @@ function MCMCiFFBS_(N,
         # Calculate Acontrib contributions
         AcontribPop_sum = 0.0
         AcontribPop_count = 0.0
-        for i in 1:m
+        for tt in 1:maxt
             for g in 1:G
-                for tt in 1:maxt
+                for i in 1:m
                     if AcontribIndivGroupTime[i, g, tt] > 0.0
                         AcontribPop_sum += AcontribIndivGroupTime[i, g, tt]
                         AcontribPop_count += 1.0
@@ -1065,8 +1065,8 @@ function MCMCiFFBS_(N,
         for tt in 1:maxt
             AcontribPopTime_sum = 0.0
             AcontribPopTime_count = 0.0
-            for i in 1:m
-                for g in 1:G
+            for g in 1:G
+                for i in 1:m
                     if AcontribIndivGroupTime[i, g, tt] > 0.0
                         AcontribPopTime_sum += AcontribIndivGroupTime[i, g, tt]
                         AcontribPopTime_count += 1.0
