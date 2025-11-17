@@ -453,7 +453,7 @@ function ObsProcess!(corrector,
 
     numTests = size(TestMat_i, 2)
     idxTests = collect(1:numTests)
-
+    rows = Vector{Int}(undef, length(TestTimes_i))
     maxt_i = endTime - (t0-1)
 
     for tt = 0:maxt_i-1
@@ -465,18 +465,25 @@ function ObsProcess!(corrector,
         else
             corrector[tt + t0, :] .= (eta, eta, eta, 0.0)
 
-            rows = findall(x -> x == tt + 1, TestTimes_i .- t0)
+            #rows = findall(x -> x == tt + 1, TestTimes_i .- t0)
+            n_row = 0
+            for it in 1:size(TestTimes_i, 1)
+                if TestTimes_i[it] - t0 == tt + 1
+                    n_row += 1
+                    rows[n_row] = it
+                end
+            end
 
-            if !isempty(rows)
-
-                TestMat_i_tt = TestMat_i[rows, :]
-
+            if n_row > 0
+      
+                #TestMat_i_tt = TestMat_i[rows, :]
+                TestMat_i_tt = @views(TestMat_i[rows[1:n_row], :])
                 productIfSuscep = 1.0
                 productIfExposed = 1.0
                 productIfInfectious = 1.0
 
                 # === EXACT MATCH TO ORIGINAL NESTED LOOPS ===
-                for ir in 1:length(rows)
+                for ir in 1:n_row
                     Tests_ir = TestMat_i_tt[ir, :]
 
                     idx = findall(i -> Tests_ir[i] == 0 || Tests_ir[i] == 1, idxTests)
@@ -514,11 +521,12 @@ function normTransProbRest(logProbs)
   return out
   end
 
-  function normTransProbRest!(logProbs)  
+  function normTransProbRest!(logProbs,log_probs_minus_B)  
   
   n = length(logProbs)
   B = maximum(logProbs)
-  lse = B + logsumexp(logProbs .- B)
+  log_probs_minus_B .= logProbs .- B
+  lse = B + logsumexp(log_probs_minus_B)
   for j in 1:n
     logProbs[j] = exp(logProbs[j] - lse)
   end
@@ -1031,7 +1039,7 @@ function gradThetasRhos2(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
     
     derivloglik = zeros(Float64, 2 * numTests)
     rows = Vector{Int64}(undef, size(X, 2))
-    valid_tests = Vector{Int64}(undef, numTests)
+    valid_tests = Vector{Int64}(undef, size(X, 2))
     Tests_ir = Vector{Float64}(undef, numTests)
             ### Looping wrong way Stilm column major!!
     for jj in 1:m  # Julia is 1-based
@@ -1056,10 +1064,9 @@ function gradThetasRhos2(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
             if n_row > 0
                 TestMat_i_tt = @views(TestMat_i[rows[1:n_row], :])
                 
-                #for (ir_idx, ir) in enumerate(rows[1:n_row])
+                #=
                 for ir_idx in 1:n_row#(ir_idx, ir) in enumerate(rows[1:n_row])
                     Tests_ir .= TestMat_i_tt[ir_idx, :]
-                    #valid_tests = findall(x -> x == 0.0 || x == 1.0, Tests_ir)
                     n_test = 0
                     for it in 1:numTests
                         if (Tests_ir[it] == 0.0) || (Tests_ir[it] == 1.0)
@@ -1067,7 +1074,16 @@ function gradThetasRhos2(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
                             valid_tests[n_test] = it
                         end
                     end
-                    
+                =#
+                for col in 1:numTests
+                    n_test = 0
+                    for it in 1:n_row
+                        if (TestMat_i_tt[it,col] == 0.0) || (TestMat_i_tt[it,col] == 1.0)
+                            n_test += 1
+                            valid_tests[n_test] = it
+                        end
+                    end
+
                     #for ic in valid_tests[1:n_test]
                     for ic in 1:n_test#valid_tests[1:n_test]
                         i = valid_tests[ic]  # Julia is 1-based

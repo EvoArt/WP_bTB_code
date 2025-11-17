@@ -61,6 +61,7 @@ function iFFBS_(alpha_js,
             # These lines allocate. Does it matter?
   unnormFiltProb = zeros(numStates)
   transProbRest =  zeros(numStates)
+  log_probs_minus_B = zeros(numStates)
   
 
   nuE_i = 0.0
@@ -97,8 +98,8 @@ function iFFBS_(alpha_js,
               # also logTransProbRest.row(t0) allocates.
     #logTransProbRest_row = logTransProbRest[t0,:]
     #transProbRest = normTransProbRest(logTransProbRest_row)
-    transProbRest = logTransProbRest[:,t0]
-    normTransProbRest!(transProbRest)
+    transProbRest .= logTransProbRest[:,t0]
+    normTransProbRest!(transProbRest,log_probs_minus_B)
     for s in 1:numStates
       unnormFiltProb[s] = corrector[t0,s] * predProb[t0,s] * transProbRest[s]
     end
@@ -160,8 +161,8 @@ function iFFBS_(alpha_js,
       
       #logTransProbRest_row = logTransProbRest[tt+t0,:]
       #transProbRest = normTransProbRest(logTransProbRest_row)
-       transProbRest = logTransProbRest[:,tt+t0]
-      normTransProbRest!(transProbRest)
+       transProbRest .= logTransProbRest[:,tt+t0]
+      normTransProbRest!(transProbRest,log_probs_minus_B)
       # row major indexing pain
       for s in 1:numStates 
         unnormFiltProb[s] = corrector[tt+t0,s] * predProb[tt+t0,s] * transProbRest[s]
@@ -234,8 +235,8 @@ function iFFBS_(alpha_js,
     if tt+t0 < maxt-1
       #logTransProbRest_row = logTransProbRest[tt+t0,:]
       #transProbRest = normTransProbRest(logTransProbRest_row)
-      transProbRest = logTransProbRest[:,tt+t0]
-      normTransProbRest!(transProbRest)
+      transProbRest .= logTransProbRest[:,tt+t0]
+      normTransProbRest!(transProbRest,log_probs_minus_B)
       for s in 1:numStates
         unnormFiltProb[s] = corrector[tt+t0,s] * predProb[tt+t0,s] * transProbRest[s]
       end
@@ -299,7 +300,8 @@ function iFFBS_(alpha_js,
     println("corrector = $(corrector)")
     println("logTransProbRest = $(logTransProbRest)") 
   end
-  newStatus = sample(states,Weights(probs))
+  #newStatus = sample(states,Weights(probs))
+  newStatus = states[rand(Categorical(probs))] 
   ##println("newStatus = $newStatus")
 
   X[id, endTime] = newStatus
@@ -391,8 +393,9 @@ function iFFBS_(alpha_js,
        ##println("probs = $probs")
        
   # Debug: Track when E→S transitions might occur
-  
+          #### Weights normalises. C++ also does this.
   newStatus = sample(states,Weights(probs))
+  #  newStatus = states[rand(Categorical(probs))] 
   ##println("newStatus = $newStatus")
 
 
