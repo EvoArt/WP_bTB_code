@@ -479,16 +479,19 @@ function MCMCiFFBS_(N,
     whichRequireUpdate = Vector{Vector{Int}}(undef, (m-1)*(maxt-1))
     count = 0
     for i in 1:m-1
-        id = i
-        idNext = i+1
+        id::Int = i
+        idNext::Int = i+1
         
         for tt in 1:maxt-1
             idx = Int[]
             for jj in 2:m
-                if ((jj != id) && (jj != idNext)) &&
-                   (SocGroup[jj, tt] != 0) &&
-                   (SocGroup[jj, tt] == SocGroup[id, tt] ||
-                    SocGroup[jj, tt] == SocGroup[idNext, tt])
+                sgfjjtt = SocGroup[jj, tt]
+                # Explicit type annotations prevent boxing in comparisons
+                # @inbounds eliminates bounds checking for array access
+                @inbounds if ((jj != id) && (jj != idNext)) &&
+                   (sgfjjtt != 0) &&
+                   (sgfjjtt == SocGroup[id, tt] ||
+                    sgfjjtt == SocGroup[idNext, tt])
                     push!(idx, jj)
                 end
             end

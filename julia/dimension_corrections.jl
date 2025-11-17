@@ -514,6 +514,17 @@ function normTransProbRest(logProbs)
   return out
   end
 
+  function normTransProbRest!(logProbs)  
+  
+  n = length(logProbs)
+  B = maximum(logProbs)
+  lse = B + logsumexp(logProbs .- B)
+  for j in 1:n
+    logProbs[j] = exp(logProbs[j] - lse)
+  end
+
+  end
+
   function iFFBScalcLogProbRest(
     i,
     ttt,
@@ -863,6 +874,7 @@ function logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeri
     m = size(X, 1)
     numTests = size(TestField[1], 2)
     idxTests = 1:numTests  # Julia is 1-based
+    rows = Vector{Int64}(undef, size(X, 2))
     
     logLik = 0.0
     
@@ -876,12 +888,19 @@ function logPostThetasRhos(thetas, rhos, X, startSamplingPeriod, endSamplingPeri
         
         for tt in 0:maxt_i-1  # C++: tt=0; tt<maxt_i; tt++
             # Find rows where TestTimes_i - t0 == tt+1
-            rows = findall(x -> x - t0 == tt + 1, TestTimes_i)
+            n_row = 0
+            for it in 1:size(TestTimes_i, 1)
+                if TestTimes_i[it] - t0 == tt + 1
+                    n_row += 1
+                    rows[n_row] = it
+                end
+            end
             
-            if length(rows) > 0
-                TestMat_i_tt = TestMat_i[rows, :]
+            if n_row > 0
+                #### Whay allocate whole new array?
+                TestMat_i_tt = TestMat_i[rows[1:n_row], :]
                 
-                for (ir_idx, ir) in enumerate(rows)
+                for (ir_idx, ir) in enumerate(rows[1:n_row])
                     Tests_ir = TestMat_i_tt[ir_idx, :]
                     valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
                     
@@ -1003,7 +1022,9 @@ function gradThetasRhos2(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
     
     derivloglik = zeros(Float64, 2 * numTests)
     rows = Vector{Int64}(undef, size(X, 2))
-    
+    valid_tests = Vector{Int64}(undef, numTests)
+    Tests_ir = Vector{Float64}(undef, numTests)
+            ### Looping wrong way Stilm column major!!
     for jj in 1:m  # Julia is 1-based
         id = jj  # C++: id = jj+1L
         TestMat_i = TestField[jj]
@@ -1018,38 +1039,48 @@ function gradThetasRhos2(thetas, rhos, X, startSamplingPeriod, endSamplingPeriod
             for it in 1:size(TestTimes_i, 1)
                 if TestTimes_i[it] - t0 == tt + 1
                     n_row += 1
-                    rows[it] = it
+                    rows[n_row] = it
                 end
             end
-            
+            #### This whole section could likely be a lot faster.
+            #### Why make a vec of 
             if n_row > 0
-                TestMat_i_tt = TestMat_i[rows[1:n_row], :]
+                TestMat_i_tt = @views(TestMat_i[rows[1:n_row], :])
                 
-                for (ir_idx, ir) in enumerate(rows[1:n_row])
-                    Tests_ir = TestMat_i_tt[ir_idx, :]
-                    valid_tests = findall(x -> x == 0 || x == 1, Tests_ir)
+                #for (ir_idx, ir) in enumerate(rows[1:n_row])
+                for ir_idx in 1:n_row#(ir_idx, ir) in enumerate(rows[1:n_row])
+                    Tests_ir .= TestMat_i_tt[ir_idx, :]
+                    #valid_tests = findall(x -> x == 0.0 || x == 1.0, Tests_ir)
+                    n_test = 0
+                    for it in 1:numTests
+                        if (Tests_ir[it] == 0.0) || (Tests_ir[it] == 1.0)
+                            n_test += 1
+                            valid_tests[n_test] = it
+                        end
+                    end
                     
-                    for ic in valid_tests
-                        i = ic  # Julia is 1-based
+                    #for ic in valid_tests[1:n_test]
+                    for ic in 1:n_test#valid_tests[1:n_test]
+                        i = valid_tests[ic]  # Julia is 1-based
                         
-                        if X[id, tt + t0 + 1] == 3  # Exposed state (C++: X(id-1,tt+t0)==3L)
+                        if X[id, tt + t0 + 1] == 3.0  # Exposed state (C++: X(id-1,tt+t0)==3L)
                             expThetaTilde = exp(logit(thetas[i]))
                             expRhoTilde = exp(logit(rhos[i]))
                             test_result = Tests_ir[i]
                             
                             # Derivatives wrt theta
                             derivloglik[i] += test_result * (1 - thetas[i]) + 
-                                (1 - test_result) * (expThetaTilde / (1 + expThetaTilde + expRhoTilde) - thetas[i])
+                                (1 - test_result) * (expThetaTilde / (1.0 + expThetaTilde + expRhoTilde) - thetas[i])
                             
                             # Derivatives wrt rho
-                            derivloglik[i + numTests] += test_result * (1 - rhos[i]) + 
-                                (1 - test_result) * (expRhoTilde / (1 + expThetaTilde + expRhoTilde) - rhos[i])
+                            derivloglik[i + numTests] += test_result * (1.0 - rhos[i]) + 
+                                (1 - test_result) * (expRhoTilde / (1.0 + expThetaTilde + expRhoTilde) - rhos[i])
                             
-                        elseif X[id, tt + t0 + 1] == 1  # Infectious state (C++: X(id-1,tt+t0)==1L)
+                        elseif X[id, tt + t0 + 1] == 1.0  # Infectious state (C++: X(id-1,tt+t0)==1L)
                             test_result = Tests_ir[i]
                             
                             # Derivatives wrt theta
-                            derivloglik[i] += test_result * (1 - thetas[i]) - 
+                            derivloglik[i] += test_result * (1.0 - thetas[i]) - 
                                 (1 - test_result) * thetas[i]
                         end
                     end
