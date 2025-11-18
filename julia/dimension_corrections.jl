@@ -220,119 +220,84 @@ end
 """
 CORRECTED VERSION - Check matrix indexing
 """
-function CheckSensSpec__CORRECTED(numTests, 
-                        TestField, 
-                        TestTimes,
-                        X)
-    
-    m = size(X, 1)
-    
-    # Use 1-based indexing throughout
-    # CRITICAL: Matrix dimensions - (4 x numTests) is correct
-    out = zeros(Int, 4, numTests)
-    
-    for iTest in 1:numTests
-        numInfecTested = 0
-        numInfecPositives = 0
-        numSuscepTested = 0
-        numSuscepNegatives = 0
-        
-        for i in 1:m
-            Tests_i = TestField[i]
-            testTimes_i = TestTimes[i]  # Keep 1-based
-            X_i = X[i, :]
-            
-            # CRITICAL: Check indexing logic
-            if length(testTimes_i) > 0 && maximum(testTimes_i) <= length(X_i)
-                status = X_i[testTimes_i]  # Use 1-based indexing
-                tests_i = Tests_i[:, iTest]
-                
-                # exposed and infectious individuals
-                which_ExpInfec = findall(x -> x == 3 || x == 1, status)
-                tests_i_inf = tests_i[which_ExpInfec]
-                status_inf = status[which_ExpInfec]
-                
-                newInfTes = count(x -> x == 0 || x == 1, tests_i_inf)
-                newInfPos = count(x -> (status_inf[x] == 3 || status_inf[x] == 1) && (tests_i_inf[x] == 1), eachindex(status_inf))
-                
-                numInfecTested += newInfTes
-                numInfecPositives += newInfPos
-                
-                # susceptible individuals
-                which_suscep = findall(x -> x == 0, status)
-                tests_i_suscep = tests_i[which_suscep]
-                status_suscep = status[which_suscep]
-                
-                newSuscepTes = count(x -> x == 0 || x == 1, tests_i_suscep)
-                newSuscepPos = count(x -> (status_suscep[x] == 0) && (tests_i_suscep[x] == 0), eachindex(status_suscep))
-                
-                numSuscepTested += newSuscepTes
-                numSuscepNegatives += newSuscepPos
-            end
-        end
-        
-        # CRITICAL: Matrix indexing - (row, col) format
-        out[1, iTest] = numInfecPositives
-        out[2, iTest] = numInfecTested - numInfecPositives
-        out[3, iTest] = numSuscepNegatives
-        out[4, iTest] = numSuscepTested - numSuscepNegatives
-    end
-    
-    return out
-end
 
 function CheckSensSpec__CORRECTED(numTests, TestField, TestTimes, X)
 
+    ### Is the logic of this function correct??
+    ### seems weird that suseptpos is 0,0. (pos should be 1?)
     m = size(X, 1)
     out = zeros(Int, 4, numTests)
-
-    for iTest in 1:numTests
-
-        numInfecTested = 0
-        numInfecPositives = 0
-        numSuscepTested = 0
-        numSuscepNegatives = 0
-
-        for i in 1:m
-
-            Tests_i = TestField[i]               # matrix (individual × tests)
+    
+       # Threads.@threads for i in 1:m
+    for i in 1:m
+        Tests_i = TestField[i]               # matrix (individual × tests)
             testTimes_i = TestTimes[i]     # convert to 0-based like C++
             X_i = X[i, :]                        # row vector
             status = X_i[testTimes_i]       # back to 1-based
+        for iTest in 1:numTests
+            numInfecTested = 0
+            numInfecPositives = 0
+            numSuscepTested = 0
+            numSuscepNegatives = 0
+            tests_i = @views(Tests_i[:, iTest])          # column of tests for this test type
 
-            tests_i = Tests_i[:, iTest]          # column of tests for this test type
+            newInfPos = 0
+            newInfTes = 0
+            newSuscepTes = 0
+            newSuscepPos = 0
+            for (idx,s) in enumerate(status)
+                tests_i_idx = tests_i[idx]
+                if s == 0.0
+                    if (tests_i_idx == 0.0) 
+                        newSuscepTes+=1
+                        newSuscepPos += 1
+                    elseif tests_i_idx == 1.0
+                        newSuscepTes += 1
+                    end
+                elseif (s == 3.0) || (s == 1.0) 
+                    if (tests_i_idx == 1.0) 
+                        newInfPos +=1
+                        newInfTes += 1
+                    elseif tests_i_idx == 0.0
+                        newInfTes += 1
+                    end
+                end
 
+            end
+                
             # Exposed (3) or Infectious (1)
-            which_ExpInfec = findall(x -> x == 3 || x == 1, status)
-            tests_i_inf = tests_i[which_ExpInfec]
+            #which_ExpInfec = findall(x -> x == 3 || x == 1, status)
+            #tests_i_inf = tests_i[which_ExpInfec]
 
-            newInfTes = Base.count(x -> x == 0 || x == 1, tests_i_inf)
-            newInfPos = Base.count(j -> (status[j] == 3 || status[j] == 1) && tests_i[j] == 1,
-                              eachindex(status))
+            #newInfTes = Base.count(x -> x == 0 || x == 1, tests_i_inf)
+            #newInfPos = Base.count(j -> (status[j] == 3 || status[j] == 1) && tests_i[j] == 1,
+            #                  eachindex(status))
 
             numInfecTested += newInfTes
             numInfecPositives += newInfPos
 
             # Susceptible (0)
-            which_suscep = findall(x -> x == 0, status)
-            tests_i_suscep = tests_i[which_suscep]
+            #which_suscep = findall(x -> x == 0, status)
+            #tests_i_suscep = tests_i[which_suscep]
 
-            newSuscepTes = Base.count(x -> x == 0 || x == 1, tests_i_suscep)
-            newSuscepPos = Base.count(j -> status[j] == 0 && tests_i[j] == 0,
-                                 eachindex(status))
+            #newSuscepTes = Base.count(x -> x == 0 || x == 1, tests_i_suscep)
+            #newSuscepPos = Base.count(j -> status[j] == 0 && tests_i[j] == 0,
+            #                     eachindex(status))
 
             numSuscepTested += newSuscepTes
             numSuscepNegatives += newSuscepPos
+
+            out[1, iTest] += numInfecPositives
+            out[2, iTest] += numInfecTested - numInfecPositives
+            out[3, iTest] += numSuscepNegatives
+            out[4, iTest] += numSuscepTested - numSuscepNegatives
         end
 
-        out[1, iTest] = numInfecPositives
-        out[2, iTest] = numInfecTested - numInfecPositives
-        out[3, iTest] = numSuscepNegatives
-        out[4, iTest] = numSuscepTested - numSuscepNegatives
     end
 
     return out
 end
+
 ## CRITICAL ISSUE 4: Vector operations in HMC/RWMH
 
 """

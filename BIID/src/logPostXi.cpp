@@ -32,19 +32,6 @@ double logPostXi(int xiMin,
     int t0 = startSamplingPeriod[jj] - 1L;
     int maxt_i = endSamplingPeriod[jj] - t0;
   
-    // int t0;
-    // int maxt_i;
-    // if(birthTime<1L){
-    //   t0 = 0L;
-    //   // maxt_i = maxt;
-    //   maxt_i = endSamplingPeriod[jj];
-    // }else{
-    //   t0 = birthTime-1L;
-    //   // maxt_i = maxt - t0;
-    //   maxt_i = endSamplingPeriod[jj] - t0;
-    // }
-
-  
     for (int tt=0; tt<maxt_i; tt++) {
      
      if((tt+t0+1L >= xiMin)&&(tt+t0+1L < xiMax)){
