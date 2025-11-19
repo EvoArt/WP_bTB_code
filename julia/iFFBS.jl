@@ -144,7 +144,7 @@ function iFFBS_(alpha_js,
   
             # I guess because of movement between groups and births/deaths it is
             # not straightforward to do pre-calc for each group
-  if maxt_i>2
+  if maxt_i>1
     hitnan = false
     # t=2,...,T-1
     for tt in 1:maxt_i-1
@@ -309,7 +309,7 @@ function iFFBS_(alpha_js,
     
   # tt will start from maxt_i-1 and finish at 1
   if maxt_i>1
-    for tt=maxt_i-1:-1:1
+    for tt=maxt_i-1:-1:0
       
       g = SocGroup[id, tt+t0]
       mgt = mPerGroup[g, tt+t0]
