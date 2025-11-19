@@ -1,0 +1,545 @@
+---
+title: "iFFBS Julia vs C++ Stochastic Comparison"
+format: html
+engine: julia
+---
+
+# Setup
+
+This notebook compares the stochastic behavior of Julia's `iFFBS_` against C++'s implementation to verify they produce similar trajectory distributions.
+
+## Activate Julia Environment
+
+```{julia}
+using Pkg
+Pkg.activate("./julia")
+```
+
+## Environment Configuration
+
+```{julia}
+# Set R_HOME to use R 4.5.1 before loading RCall
+ENV["R_HOME"] = "C:/Program Files/R/R-4.5.1"
+
+# Add R directories to PATH
+r_home = ENV["R_HOME"]
+r_bin_x64 = joinpath(r_home, "bin", "x64")
+r_bin = joinpath(r_home, "bin")
+
+if !occursin(r_bin_x64, ENV["PATH"])
+    ENV["PATH"] = r_bin_x64 * ";" * r_bin * ";" * ENV["PATH"]
+end
+
+# Preload R DLLs
+using Base.Libc.Libdl
+r_dll = joinpath(r_bin_x64, "R.dll")
+rblas_dll = joinpath(r_bin_x64, "Rblas.dll")
+rlapack_dll = joinpath(r_bin_x64, "Rlapack.dll")
+
+println("Preloading R DLLs...")
+dlopen(r_dll, RTLD_GLOBAL)
+dlopen(rblas_dll, RTLD_GLOBAL)
+dlopen(rlapack_dll, RTLD_GLOBAL)
+println("✅ R DLLs preloaded successfully")
+
+ENV["R_DEFAULT_PACKAGES"] = "datasets,utils,grDevices,graphics,methods"
+```
+
+## Load Packages
+
+```{julia}
+using Random
+using Statistics
+using LinearAlgebra
+using RCall
+using Distributions
+using DataFrames
+
+Random.seed!(42)
+```
+
+## Initialize R and Load BIID Package
+
+```{julia}
+R"""
+library(Rcpp)
+suppressWarnings(library(RcppArmadillo))
+library(BIID)
+"""
+```
+
+## Load Julia Functions
+
+```{julia}
+println("📦 Loading Julia functions...")
+include("julia/iFFBS.jl")
+include("julia/dimension_corrections.jl")
+```
+
+## Generate Test Data
+
+Generate synthetic test data for iFFBS comparison.
+
+```{julia}
+println("📂 Generating test data...")
+
+Random.seed!(42)
+
+# Basic dimensions
+m = 20  # number of individuals
+maxt = 50  # number of time points
+G = 5  # number of social groups
+numTests = 4
+numSeasons = 4
+
+# Individual-level data
+birthTimes = rand(1:10, m)
+startSamplingPeriod = rand(11:20, m)
+endSamplingPeriod = rand(30:45, m)
+X = rand([0, 1, 3, 9], m, maxt)
+seasonVec = repeat(1:numSeasons, inner=div(maxt, numSeasons) + 1)[1:maxt]
+
+# Social group structure
+SocGroup = rand(1:G, m, maxt)
+mPerGroup = rand(1:5, G, maxt)
+
+# Capture history and test data
+CaptHist = rand([0, 1], m, maxt)
+TestMat = Float64.(rand(1:m, 100, 3 + numTests))
+TestMat[:, 4:end] = rand([0.0, 1.0, NaN], 100, numTests)
+TestField = TestMatAsField_CORRECTED(TestMat, m)
+TestTimes = TestTimesField(TestMat, m)
+
+# Parameters
+thetas = rand(0.5:0.01:0.9, numTests)
+rhos = rand(0.5:0.01:0.9, numTests)
+phis = rand(0.1:0.01:0.3, numTests)
+etas = rand(0.3:0.01:0.7, numSeasons)
+
+# Transmission parameters
+b = 0.5
+q = 0.3
+tau = 2.0
+k = 2
+K = 10.0
+
+# Pre-computed matrices
+probDyingMat = rand(m, maxt)
+LogProbDyingMat = log.(probDyingMat)
+LogProbSurvMat = log.(1 .- probDyingMat)
+logProbRest = rand(G, maxt, 4)
+nuTimes = collect(1:10)
+nuEs = rand(10)
+nuIs = rand(10)
+
+# Probability matrices (G x maxt)
+logProbStoSgivenSorE = rand(G, maxt)
+logProbStoEgivenSorE = rand(G, maxt)
+logProbStoSgivenI = rand(G, maxt)
+logProbStoEgivenI = rand(G, maxt)
+logProbStoSgivenD = rand(G, maxt)
+logProbStoEgivenD = rand(G, maxt)
+logProbEtoE = log(0.7)
+logProbEtoI = log(0.3)
+
+# Group-level data
+alpha_js = rand(G)
+idVecAll = collect(1:m)
+whichRequireUpdate = [collect(1:m) for _ in 1:G]
+
+# Infection counts
+numInfecMat = rand(0:3, G, maxt)
+
+println("✅ Test data generated successfully")
+println("  $m individuals × $maxt time points")
+println("  $G social groups")
+```
+
+## Test iFFBS_ for a Single Individual
+
+Test on a single individual to compare trajectory distributions.
+
+```{julia}
+println("\n🧪 Testing iFFBS_ for individual 1")
+
+# Select an individual to test
+test_id = 1
+birthTime = birthTimes[test_id]
+startTime = startSamplingPeriod[test_id]
+endTime = endSamplingPeriod[test_id]
+
+println("Individual $test_id:")
+println("  Birth time: $birthTime")
+println("  Start time: $startTime")
+println("  End time: $endTime")
+println("  Monitoring period: $(endTime - startTime) time steps")
+
+# Prepare matrices for Julia
+corrector = zeros(Float64, maxt, 4)
+predProb = zeros(Float64, maxt, 4)
+filtProb = zeros(Float64, maxt, 4)
+logTransProbRest = zeros(Float64, maxt, 4)
+sumLogCorrector = 0.0
+
+# Number of replications
+n_reps = 100
+
+println("\n🔄 Running $n_reps replications...")
+
+# Julia results
+println("Running Julia version...")
+julia_trajectories = zeros(Int, n_reps, endTime - startTime + 1)
+julia_X = copy(X)
+
+for rep in 1:n_reps
+    # Reset matrices
+    fill!(corrector, 0.0)
+    fill!(predProb, 0.0)
+    fill!(filtProb, 0.0)
+    fill!(logTransProbRest, 0.0)
+    sumLogCorrector = 0.0
+    
+    # Run iFFBS
+    iFFBS_(alpha_js, b, q, tau, k, K,
+           probDyingMat, LogProbDyingMat, LogProbSurvMat,
+           logProbRest, nuTimes, nuEs, nuIs,
+           thetas, rhos, phis, etas,
+           test_id, birthTime, startTime, endTime,
+           julia_X, seasonVec,
+           TestField[test_id], TestTimes[test_id],
+           CaptHist, corrector, predProb, filtProb,
+           logTransProbRest, numInfecMat,
+           SocGroup, mPerGroup, idVecAll,
+           logProbStoSgivenSorE, logProbStoEgivenSorE,
+           logProbStoSgivenI, logProbStoEgivenI,
+           logProbStoSgivenD, logProbStoEgivenD,
+           logProbEtoE, logProbEtoI,
+           whichRequireUpdate, sumLogCorrector)
+    
+    # Store trajectory
+    julia_trajectories[rep, :] = julia_X[test_id, startTime:endTime]
+end
+
+println("✅ Julia completed")
+
+# C++ results
+println("Running C++ version...")
+@rput test_id birthTime startTime endTime n_reps
+@rput alpha_js b q tau k K
+@rput probDyingMat LogProbDyingMat LogProbSurvMat
+@rput logProbRest nuTimes nuEs nuIs
+@rput thetas rhos phis etas
+@rput X seasonVec TestField TestTimes CaptHist
+@rput numInfecMat SocGroup mPerGroup idVecAll
+@rput logProbStoSgivenSorE logProbStoEgivenSorE
+@rput logProbStoSgivenI logProbStoEgivenI
+@rput logProbStoSgivenD logProbStoEgivenD
+@rput logProbEtoE logProbEtoI whichRequireUpdate
+
+R"""
+cpp_trajectories <- matrix(0, nrow = n_reps, ncol = endTime - startTime + 1)
+X_cpp <- X
+
+for (rep in 1:n_reps) {
+    # Reset matrices
+    corrector <- matrix(0, nrow = nrow(X), ncol = 4)
+    predProb <- matrix(0, nrow = nrow(X), ncol = 4)
+    filtProb <- matrix(0, nrow = nrow(X), ncol = 4)
+    logTransProbRest <- matrix(0, nrow = nrow(X), ncol = 4)
+    sumLogCorrector <- 0.0
+    
+    # Run iFFBS
+    iFFBS_(alpha_js, b, q, tau, k, K,
+           probDyingMat, LogProbDyingMat, LogProbSurvMat,
+           logProbRest, nuTimes, nuEs, nuIs,
+           thetas, rhos, phis, etas,
+           test_id, birthTime, startTime, endTime,
+           X_cpp, seasonVec,
+           TestField[[test_id]], TestTimes[[test_id]],
+           CaptHist, corrector, predProb, filtProb,
+           logTransProbRest, numInfecMat,
+           SocGroup, mPerGroup, idVecAll,
+           logProbStoSgivenSorE, logProbStoEgivenSorE,
+           logProbStoSgivenI, logProbStoEgivenI,
+           logProbStoSgivenD, logProbStoEgivenD,
+           logProbEtoE, logProbEtoI,
+           whichRequireUpdate, sumLogCorrector)
+    
+    # Store trajectory
+    cpp_trajectories[rep, ] <- X_cpp[test_id, startTime:endTime]
+}
+"""
+
+cpp_trajectories = @rget cpp_trajectories
+println("✅ C++ completed")
+```
+
+## Compare Trajectory Distributions
+
+```{julia}
+println("\n📊 Comparing trajectory distributions...")
+
+# Calculate state frequencies at each time point
+n_times = size(julia_trajectories, 2)
+states = [0, 1, 3, 9]  # S, I, E, D
+state_names = ["Susceptible", "Infectious", "Exposed", "Dead"]
+
+println("\nState frequencies at each time point:")
+println("="^80)
+
+for t in 1:n_times
+    time_point = startTime + t - 1
+    println("\nTime $time_point:")
+    
+    for (s_idx, state) in enumerate(states)
+        julia_freq = sum(julia_trajectories[:, t] .== state) / n_reps
+        cpp_freq = sum(cpp_trajectories[:, t] .== state) / n_reps
+        diff = abs(julia_freq - cpp_freq)
+        
+        status = diff < 0.1 ? "✅" : "⚠️"
+        println("  $status $(state_names[s_idx]) (state=$state):")
+        println("     Julia: $(round(julia_freq, digits=3))")
+        println("     C++:   $(round(cpp_freq, digits=3))")
+        println("     Diff:  $(round(diff, digits=3))")
+    end
+end
+```
+
+## Statistical Comparison
+
+Compare state distributions at each time point using simple divergence metrics.
+
+```{julia}
+println("\n📈 Statistical comparison:")
+println("="^80)
+
+all_pass = true
+max_divergence = 0.0
+
+for t in 1:n_times
+    time_point = startTime + t - 1
+    
+    # Count frequencies for each state
+    julia_counts = [sum(julia_trajectories[:, t] .== s) for s in states]
+    cpp_counts = [sum(cpp_trajectories[:, t] .== s) for s in states]
+    
+    # Convert to proportions
+    julia_props = julia_counts ./ n_reps
+    cpp_props = cpp_counts ./ n_reps
+    
+    # Calculate total variation distance (L1 distance / 2)
+    tv_distance = sum(abs.(julia_props .- cpp_props)) / 2
+    max_divergence = max(max_divergence, tv_distance)
+    
+    # Check if distributions are similar (threshold: 0.1)
+    status = tv_distance < 0.1 ? "✅" : "❌"
+    println("$status Time $time_point: TV distance = $(round(tv_distance, digits=3))")
+    
+    if tv_distance >= 0.1
+        all_pass = false
+        println("   Julia: $julia_props")
+        println("   C++:   $cpp_props")
+    end
+end
+
+println("\nMax total variation distance: $(round(max_divergence, digits=3))")
+
+if all_pass
+    println("✅ PASS - All time points show similar distributions (TV < 0.1)")
+else
+    println("⚠️  WARNING - Some time points show significant differences")
+end
+```
+
+## Visualize Trajectory Variability
+
+Compare within-implementation variability vs between-implementation differences.
+
+```{julia}
+println("\n📉 Trajectory variability analysis:")
+println("="^80)
+
+# Calculate pairwise distances between trajectories
+function hamming_distance(traj1, traj2)
+    return sum(traj1 .!= traj2)
+end
+
+# Within Julia variability
+julia_distances = Float64[]
+for i in 1:n_reps-1
+    for j in i+1:n_reps
+        push!(julia_distances, hamming_distance(julia_trajectories[i, :], julia_trajectories[j, :]))
+    end
+end
+
+# Within C++ variability
+cpp_distances = Float64[]
+for i in 1:n_reps-1
+    for j in i+1:n_reps
+        push!(cpp_distances, hamming_distance(cpp_trajectories[i, :], cpp_trajectories[j, :]))
+    end
+end
+
+# Between Julia and C++ distances
+between_distances = Float64[]
+for i in 1:n_reps
+    for j in 1:n_reps
+        push!(between_distances, hamming_distance(julia_trajectories[i, :], cpp_trajectories[j, :]))
+    end
+end
+
+println("\nHamming distance statistics (number of differing time points):")
+println("  Within Julia:  mean = $(round(mean(julia_distances), digits=2)), std = $(round(std(julia_distances), digits=2))")
+println("  Within C++:    mean = $(round(mean(cpp_distances), digits=2)), std = $(round(std(cpp_distances), digits=2))")
+println("  Between J↔C++: mean = $(round(mean(between_distances), digits=2)), std = $(round(std(between_distances), digits=2))")
+
+# Compare means
+within_mean = (mean(julia_distances) + mean(cpp_distances)) / 2
+between_mean = mean(between_distances)
+ratio = between_mean / within_mean
+
+println("\nVariability ratio (between/within): $(round(ratio, digits=2))")
+
+if ratio < 1.2
+    println("✅ PASS - Between-implementation variability is similar to within-implementation variability")
+    println("   This suggests Julia and C++ are producing similar stochastic outputs")
+else
+    println("❌ FAIL - Between-implementation variability is much larger than within-implementation")
+    println("   This suggests systematic differences between Julia and C++ implementations")
+end
+```
+
+## Test Multiple Individuals
+
+```{julia}
+println("\n🧪 Testing multiple individuals...")
+
+# Test on first 10 individuals
+test_ids = 1:min(10, m)
+n_reps_multi = 50
+
+results = DataFrame(
+    ID = Int[],
+    Julia_Mean_Hamming = Float64[],
+    CPP_Mean_Hamming = Float64[],
+    Between_Mean_Hamming = Float64[],
+    Ratio = Float64[],
+    Pass = Bool[]
+)
+
+for id in test_ids
+    birthTime = birthTimes[id]
+    startTime = startSamplingPeriod[id]
+    endTime = endSamplingPeriod[id]
+    
+    # Skip if monitoring period is too short
+    if endTime - startTime < 2
+        continue
+    end
+    
+    # Julia runs
+    julia_X = copy(X)
+    julia_trajs = zeros(Int, n_reps_multi, endTime - startTime + 1)
+    
+    for rep in 1:n_reps_multi
+        corrector = zeros(Float64, maxt, 4)
+        predProb = zeros(Float64, maxt, 4)
+        filtProb = zeros(Float64, maxt, 4)
+        logTransProbRest = zeros(Float64, maxt, 4)
+        sumLogCorrector = 0.0
+        
+        iFFBS_(alpha_js, b, q, tau, k, K,
+               probDyingMat, LogProbDyingMat, LogProbSurvMat,
+               logProbRest, nuTimes, nuEs, nuIs,
+               thetas, rhos, phis, etas,
+               id, birthTime, startTime, endTime,
+               julia_X, seasonVec,
+               TestField[id], TestTimes[id],
+               CaptHist, corrector, predProb, filtProb,
+               logTransProbRest, numInfecMat,
+               SocGroup, mPerGroup, idVecAll,
+               logProbStoSgivenSorE, logProbStoEgivenSorE,
+               logProbStoSgivenI, logProbStoEgivenI,
+               logProbStoSgivenD, logProbStoEgivenD,
+               logProbEtoE, logProbEtoI,
+               whichRequireUpdate, sumLogCorrector)
+        
+        julia_trajs[rep, :] = julia_X[id, startTime:endTime]
+    end
+    
+    # C++ runs
+    @rput id birthTime startTime endTime n_reps_multi
+    R"""
+    cpp_trajs <- matrix(0, nrow = n_reps_multi, ncol = endTime - startTime + 1)
+    X_cpp <- X
+    
+    for (rep in 1:n_reps_multi) {
+        corrector <- matrix(0, nrow = nrow(X), ncol = 4)
+        predProb <- matrix(0, nrow = nrow(X), ncol = 4)
+        filtProb <- matrix(0, nrow = nrow(X), ncol = 4)
+        logTransProbRest <- matrix(0, nrow = nrow(X), ncol = 4)
+        sumLogCorrector <- 0.0
+        
+        iFFBS_(alpha_js, b, q, tau, k, K,
+               probDyingMat, LogProbDyingMat, LogProbSurvMat,
+               logProbRest, nuTimes, nuEs, nuIs,
+               thetas, rhos, phis, etas,
+               id, birthTime, startTime, endTime,
+               X_cpp, seasonVec,
+               TestField[[id]], TestTimes[[id]],
+               CaptHist, corrector, predProb, filtProb,
+               logTransProbRest, numInfecMat,
+               SocGroup, mPerGroup, idVecAll,
+               logProbStoSgivenSorE, logProbStoEgivenSorE,
+               logProbStoSgivenI, logProbStoEgivenI,
+               logProbStoSgivenD, logProbStoEgivenD,
+               logProbEtoE, logProbEtoI,
+               whichRequireUpdate, sumLogCorrector)
+        
+        cpp_trajs[rep, ] <- X_cpp[id, startTime:endTime]
+    }
+    """
+    cpp_trajs = @rget cpp_trajs
+    
+    # Calculate distances
+    julia_dists = [hamming_distance(julia_trajs[i, :], julia_trajs[j, :]) 
+                   for i in 1:n_reps_multi-1 for j in i+1:n_reps_multi]
+    cpp_dists = [hamming_distance(cpp_trajs[i, :], cpp_trajs[j, :]) 
+                 for i in 1:n_reps_multi-1 for j in i+1:n_reps_multi]
+    between_dists = [hamming_distance(julia_trajs[i, :], cpp_trajs[j, :]) 
+                     for i in 1:n_reps_multi for j in 1:n_reps_multi]
+    
+    julia_mean = mean(julia_dists)
+    cpp_mean = mean(cpp_dists)
+    between_mean = mean(between_dists)
+    within_mean = (julia_mean + cpp_mean) / 2
+    ratio = between_mean / within_mean
+    pass = ratio < 1.2
+    
+    push!(results, (id, julia_mean, cpp_mean, between_mean, ratio, pass))
+end
+
+println(results)
+
+pass_rate = sum(results.Pass) / nrow(results)
+println("\n📊 Overall pass rate: $(round(pass_rate * 100, digits=1))%")
+
+if pass_rate >= 0.8
+    println("✅ PASS - Most individuals show similar stochastic behavior")
+else
+    println("❌ FAIL - Many individuals show systematic differences")
+end
+```
+
+## Summary
+
+```{julia}
+println("\n🏁 iFFBS Comparison Test Complete!")
+println("\nKey findings:")
+println("  - Tested iFFBS_ on $(nrow(results)) individuals")
+println("  - Pass rate: $(round(pass_rate * 100, digits=1))%")
+println("  - Mean variability ratio: $(round(mean(results.Ratio), digits=2))")
+println("\nInterpretation:")
+println("  - Ratio ≈ 1.0: Julia and C++ produce nearly identical distributions")
+println("  - Ratio > 1.2: Systematic differences exist between implementations")
+```

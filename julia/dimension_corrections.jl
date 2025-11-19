@@ -1325,7 +1325,7 @@ function logPostXi(xiMin, xiMax, xi, hp_xi, TestField_, TestTimes, thetas, rhos,
     
     # Log posterior = log likelihood + log prior
     logPost = logLik + xiLogPrior
-
+    println("logPost = $logPost; logLik = $logLik; xiLogPrior = $xiLogPrior")
     return logPost
 end
 
