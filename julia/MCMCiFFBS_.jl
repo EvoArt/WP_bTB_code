@@ -503,6 +503,10 @@ function MCMCiFFBS_(N,
     iterSub = 0
     
     # Start MCMC iterations -------------------------------------------
+    t = time()
+    io = open("log.txt", "w+")
+    logger = SimpleLogger(io)
+    global_logger(logger)
     for iter in 1:N
         
         lambda = exp(pars[G+1])
@@ -643,10 +647,13 @@ function MCMCiFFBS_(N,
   
         end
         
+        #### seems liek an obvious speed up, unless X is broken
         lastObsAliveTimes = zeros(Int, m)
         for jj in 1:m
-            which_deadTimes = findall(x -> x == 9, X[jj, :])
-            if length(which_deadTimes) > 0
+            #which_deadTimes = findall(x -> x == 9, X[jj, :])
+            #if length(which_deadTimes) > 0
+            which_deadTimes = findfirst(x -> x == 9, X[jj, :])
+            if  !isnothing(which_deadTimes)
                 lastObsAliveTimes[jj] = minimum(which_deadTimes)
             else
                 lastObsAliveTimes[jj] = endSamplingPeriod[jj]
@@ -826,9 +833,7 @@ function MCMCiFFBS_(N,
             # TestFieldProposal is updated accordingly in the function RWMH_xi:
             xi = RWMH_xi(xiCan, xi, hp_xi, TestFieldProposal, TestField, TestTimes, 
                         thetas, rhos, phis, X, startSamplingPeriod, endSamplingPeriod)
-                  
-            println("iter: $(iter); sd_xi: $sd_xi; xi: $xi")
-        end
+                          end
         
         # Updating eta using Gibbs Sampling considering irregular trapping
         for s in 1:numSeasons
@@ -1108,6 +1113,9 @@ function MCMCiFFBS_(N,
         # Save every 100 iterations (overwrite) for quick recovery
         if (iter) % 100 == 0
             println("Saving checkpoint at iteration $(iter)...")
+            
+            @info "iter = $(iter), rate = $((time()-t)/100)"
+            t = time()
             
             # Save as JLD2 (native Julia, faster)
             jldsave(joinpath(path, "checkpoint.jld2");

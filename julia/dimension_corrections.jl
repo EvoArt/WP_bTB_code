@@ -227,8 +227,7 @@ function CheckSensSpec__CORRECTED(numTests, TestField, TestTimes, X)
     ### seems weird that suseptpos is 0,0. (pos should be 1?)
     m = size(X, 1)
     out = zeros(Int, 4, numTests)
-    
-       # Threads.@threads for i in 1:m
+     #Threads.@threads for i in 1:m
     for i in 1:m
         Tests_i = TestField[i]               # matrix (individual × tests)
             testTimes_i = TestTimes[i]     # convert to 0-based like C++
@@ -245,6 +244,8 @@ function CheckSensSpec__CORRECTED(numTests, TestField, TestTimes, X)
             newInfTes = 0
             newSuscepTes = 0
             newSuscepPos = 0
+            #### assuming x is always 1 or 0, this can be further
+            #### streamlined
             for (idx,s) in enumerate(status)
                 tests_i_idx = tests_i[idx]
                 if s == 0.0
@@ -294,7 +295,6 @@ function CheckSensSpec__CORRECTED(numTests, TestField, TestTimes, X)
         end
 
     end
-
     return out
 end
 
@@ -419,9 +419,9 @@ function ObsProcess!(corrector,
     numTests = size(TestMat_i, 2)
     idxTests = collect(1:numTests)
     rows = Vector{Int}(undef, length(TestTimes_i))
-    maxt_i = endTime - (t0-1)
+    maxt_i = endTime - t0
 
-    for tt = 0:maxt_i-1
+    for tt = 1:maxt_i
         eta = etas[seasonVec[tt + t0]]
 
         if CaptHist[id, tt + t0] == 0

@@ -41,7 +41,7 @@ function iFFBS_(alpha_js,
   
   m,maxt = size(X)
   numStates = size(filtProb,2)
-  t0 = startTime #- 1
+  t0 = startTime - 1
   maxt_i = endTime - t0
 #println("startTime = $startTime")
 #println("birthTime = $birthTime")
@@ -71,6 +71,10 @@ function iFFBS_(alpha_js,
   erlang_dist = Erlang(k, tau/k)
   erlang_cdf_1 = cdf(erlang_dist, 1)
   
+  # Pre-compute constant exp() values used in every iteration
+  expLogProbEtoE = exp(logProbEtoE)
+  expLogProbEtoI = exp(logProbEtoI)
+  
   if birthTime < startTime   # born before monitoring started
                 # Is min the best function to use here?
     nuIdx = findfirst(nuTimes .== startTime)
@@ -88,10 +92,10 @@ function iFFBS_(alpha_js,
   # The individual must be alive at t0.
   # If it was born at or after the beginning of the study, it's assumed to be 
   # susceptible at t0. Otherwise, nuE and nuI are used.
-  predProb[t0,1] = 1.0-nuE_i-nuI_i  # State 1: Susceptible
-  predProb[t0,2] = nuE_i  # State 2: Exposed
-  predProb[t0,3] = nuI_i  # State 3: Infectious
-  predProb[t0,4] = 0.0  # State 4: Dead
+  predProb[t0+1,1] = 1.0-nuE_i-nuI_i  # State 1: Susceptible
+  predProb[t0+1,2] = nuE_i  # State 2: Exposed
+  predProb[t0+1,3] = nuI_i  # State 3: Infectious
+  predProb[t0+1,4] = 0.0  # State 4: Dead
  # println("nuI_i:birth:start = $([nuI_i birthTime startTime])")
   #println("t0 = $(t0)")
   if t0 < maxt-1
@@ -148,12 +152,13 @@ function iFFBS_(alpha_js,
       g = SocGroup[id, tt-1+t0]
 
       prDeath = probDyingMat[id, tt+t0]
+      prSurv = 1.0 - prDeath  # Compute once instead of 5 times
       
-      p00 = (1-prDeath)*exp(logProbStoSgivenSorE[g, tt-1+t0])
-      p01 = (1-prDeath)*exp(logProbStoEgivenSorE[g, tt-1+t0])
-      p11 = (1-prDeath)*exp(logProbEtoE)
-      p12 = (1-prDeath)*exp(logProbEtoI)
-      p22 = (1-prDeath)
+      p00 = prSurv * exp(logProbStoSgivenSorE[g, tt-1+t0])
+      p01 = prSurv * exp(logProbStoEgivenSorE[g, tt-1+t0])
+      p11 = prSurv * expLogProbEtoE  # Use pre-computed exp()
+      p12 = prSurv * expLogProbEtoI  # Use pre-computed exp()
+      p22 = prSurv
       
       predProb[tt+t0,1] = p00*(filtProb[tt-1+t0,1])
       predProb[tt+t0,2] = p01*(filtProb[tt-1+t0,1]) + p11*filtProb[tt-1+t0,2]
@@ -221,12 +226,13 @@ function iFFBS_(alpha_js,
     g = SocGroup[id, tt-1+t0]
     
     prDeath = probDyingMat[id, tt+t0]
+    prSurv = 1.0 - prDeath  # Compute once instead of 5 times
     
-    p00 = (1-prDeath)*exp(logProbStoSgivenSorE[g, tt-1+t0]) 
-    p01 = (1-prDeath)*exp(logProbStoEgivenSorE[g, tt-1+t0])
-    p11 = (1-prDeath)*exp(logProbEtoE)
-    p12 = (1-prDeath)*exp(logProbEtoI)
-    p22 = (1-prDeath)
+    p00 = prSurv * exp(logProbStoSgivenSorE[g, tt-1+t0]) 
+    p01 = prSurv * exp(logProbStoEgivenSorE[g, tt-1+t0])
+    p11 = prSurv * expLogProbEtoE  # Use pre-computed exp()
+    p12 = prSurv * expLogProbEtoI  # Use pre-computed exp()
+    p22 = prSurv
     
     predProb[tt+t0,1] = p00*(filtProb[tt-1+t0,1])
     predProb[tt+t0,2] = p01*(filtProb[tt-1+t0,1]) + p11*filtProb[tt-1+t0,2]
@@ -270,10 +276,6 @@ function iFFBS_(alpha_js,
   
   # Backward Sampling --------------------------------------
 
- # #println(logProbStoSgivenSorE[g,t0:maxt_i])
-  ##println(logProbStoSgivenSorE[g,:])
-
-   # #println(filtProb[endTime-4:endTime,:])
   states =  [0, 3, 1, 9]  # 1-based states
   probs =  filtProb[endTime,:]
   
@@ -288,14 +290,7 @@ function iFFBS_(alpha_js,
     # Normalize to ensure sum = 1
     probs = probs ./ sum(probs)
   end
-  #=
-  println("endTime = $endTime")
-  println("probs = $probs")
-  println("maxt = $maxt_i")
-  println("t0 = $t0")
-  println("predProb = $(predProb[1:4,:])")
-  =#
-  ##println(sum(isnan.(logProbStoEgivenSorE)))
+
   if sum(isnan,probs)>50
     println("Soc group:")
     println(SocGroup[id, :])
@@ -312,7 +307,6 @@ function iFFBS_(alpha_js,
   oldStatus = newStatus
     
   # tt will start from maxt_i-1 and finish at 1
-  ##println(maxt_i)
   if maxt_i>1
     for tt=maxt_i-1:-1:1
       
@@ -324,15 +318,17 @@ function iFFBS_(alpha_js,
       inf_mgt = numInfecMat[g, tt+t0]/((Float64(mgt + 1.0)/K)^q)  
 
       prDeath = probDyingMat[id, tt+1+t0]
+      prSurv = 1.0 - prDeath  # Compute once instead of 5 times
       
-      p00 = (1-prDeath)*exp(-a - b*inf_mgt)
-      p01 = (1-prDeath)*(1 - exp(-a - b*inf_mgt))
+      exp_neg_force = exp(-a - b*inf_mgt)  # Compute once, reuse twice
+      p00 = prSurv * exp_neg_force
+      p01 = prSurv * (1.0 - exp_neg_force)
                 # Are these type conversions costly?
                 # Does the compiled code calculate tau/k every iter?
                 # this seems like v obious speed up.
-      p11 = (1-prDeath)*(1.0 - erlang_cdf_1)
-      p12 = (1-prDeath)*erlang_cdf_1
-      p22 = (1-prDeath)
+      p11 = prSurv * (1.0 - erlang_cdf_1)
+      p12 = prSurv * erlang_cdf_1
+      p22 = prSurv
       ##println("pars")
       ##println("-----")
       ##println(p00)
@@ -633,6 +629,8 @@ function iFFBS_(alpha_js,
       # pos = (id-1)*(maxt-1) + tt
       # whichArma = whichRequireUpdate(pos)
       # for(auto & jj : whichArma){
+
+      #### Surely we can exit this loop early 
       
       for jj in whichRequireUpdate[c + tt]
       
@@ -649,7 +647,7 @@ function iFFBS_(alpha_js,
             logProbRest[tt, 2, jj] = LogProbSurvMat[jj, tt+1] + logProbStoEgivenSorE[g_1, tt]
             logProbRest[tt, 3, jj] = LogProbSurvMat[jj, tt+1] + logProbStoSgivenI[g_1, tt]
             logProbRest[tt, 4, jj] = LogProbSurvMat[jj, tt+1] + logProbStoSgivenD[g_1, tt]
-        elseif X[jj, tt+1] == 3
+        elseif X[jj, tt+1] == 3.0
             logProbRest[tt, 1, jj] = LogProbSurvMat[jj, tt+1] + logProbStoEgivenSorE[g_1, tt]
             logProbRest[tt, 2, jj] = LogProbSurvMat[jj, tt+1] + logProbStoEgivenSorE[g_1, tt]
             logProbRest[tt, 3, jj] = LogProbSurvMat[jj, tt+1] + logProbStoEgivenI[g_1, tt]
