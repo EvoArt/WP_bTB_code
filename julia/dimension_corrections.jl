@@ -1250,15 +1250,15 @@ function logPostXi(xiMin, xiMax, xi, hp_xi, TestField_, TestTimes, thetas, rhos,
         maxt_i = endSamplingPeriod[jj] - t0  # Length of monitoring period
         
         # Loop over time points in this individual's monitoring period
-        for tt in 0:maxt_i
+        for tt in 0:maxt_i-1
             # CRITICAL: Only evaluate likelihood for times in the range [xiMin, xiMax)
             # This is the range where the changepoint proposal differs from the current value
             # Outside this range, test assignments are identical for both xi values
-            if (tt + t0 >= xiMin) && (tt + t0 < xiMax)
+            if (tt + t0 + 1 >= xiMin) && (tt + t0 + 1 < xiMax)
                 
                 # Find all test events that occurred at this time point
-                # TestTimes_i stores absolute times, so we need to match: TestTimes_i[row] - t0 == tt
-                rows = findall(x -> x - t0 == tt, TestTimes_i)
+                # TestTimes_i stores absolute times, so we need to match: TestTimes_i[row] - t0 == tt + 1
+                rows = findall(x -> x - t0 == tt + 1, TestTimes_i)
             
                 # If there were test events at this time
                 if !isempty(rows)
