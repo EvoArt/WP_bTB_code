@@ -421,7 +421,7 @@ function ObsProcess!(corrector,
     rows = Vector{Int}(undef, length(TestTimes_i))
     maxt_i = endTime - t0
 
-    for tt = 1:maxt_i
+    for tt = 0:maxt_i
         eta = etas[seasonVec[tt + t0]]
 
         if CaptHist[id, tt + t0] == 0

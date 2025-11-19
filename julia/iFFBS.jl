@@ -41,7 +41,7 @@ function iFFBS_(alpha_js,
   
   m,maxt = size(X)
   numStates = size(filtProb,2)
-  t0 = startTime - 1
+  t0 = startTime #- 1
   maxt_i = endTime - t0
 #println("startTime = $startTime")
 #println("birthTime = $birthTime")
@@ -92,10 +92,10 @@ function iFFBS_(alpha_js,
   # The individual must be alive at t0.
   # If it was born at or after the beginning of the study, it's assumed to be 
   # susceptible at t0. Otherwise, nuE and nuI are used.
-  predProb[t0+1,1] = 1.0-nuE_i-nuI_i  # State 1: Susceptible
-  predProb[t0+1,2] = nuE_i  # State 2: Exposed
-  predProb[t0+1,3] = nuI_i  # State 3: Infectious
-  predProb[t0+1,4] = 0.0  # State 4: Dead
+  predProb[t0,1] = 1.0-nuE_i-nuI_i  # State 1: Susceptible
+  predProb[t0,2] = nuE_i  # State 2: Exposed
+  predProb[t0,3] = nuI_i  # State 3: Infectious
+  predProb[t0,4] = 0.0  # State 4: Dead
  # println("nuI_i:birth:start = $([nuI_i birthTime startTime])")
   #println("t0 = $(t0)")
   if t0 < maxt-1
@@ -275,6 +275,7 @@ function iFFBS_(alpha_js,
   # Rcout << "forward sweep: " << std::endl
   
   # Backward Sampling --------------------------------------
+
 
   states =  [0, 3, 1, 9]  # 1-based states
   probs =  filtProb[endTime,:]
