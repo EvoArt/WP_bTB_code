@@ -1,0 +1,6 @@
+┌ Info: iter = 100, rate = 1.3410399985313415
+└ @ Main C:\Users\arn203\OneDrive - University of Exeter\Documents\badgers\BIID classic\WP_bTB_code-main\julia\MCMCiFFBS_.jl:1117
+┌ Info: iter = 200, rate = 1.3155200004577636
+└ @ Main C:\Users\arn203\OneDrive - University of Exeter\Documents\badgers\BIID classic\WP_bTB_code-main\julia\MCMCiFFBS_.jl:1117
+┌ Info: iter = 300, rate = 1.6123099994659424
+└ @ Main C:\Users\arn203\OneDrive - University of Exeter\Documents\badgers\BIID classic\WP_bTB_code-main\julia\MCMCiFFBS_.jl:1117

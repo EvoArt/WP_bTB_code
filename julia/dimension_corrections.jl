@@ -1250,7 +1250,7 @@ function logPostXi(xiMin, xiMax, xi, hp_xi, TestField_, TestTimes, thetas, rhos,
         maxt_i = endSamplingPeriod[jj] - t0  # Length of monitoring period
         
         # Loop over time points in this individual's monitoring period
-        for tt in 1:maxt_i
+        for tt in 0:maxt_i
             # CRITICAL: Only evaluate likelihood for times in the range [xiMin, xiMax)
             # This is the range where the changepoint proposal differs from the current value
             # Outside this range, test assignments are identical for both xi values
