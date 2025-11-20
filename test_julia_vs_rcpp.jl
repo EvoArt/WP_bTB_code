@@ -593,3 +593,354 @@ else
 end
 
 println("\n🏁 All tests completed!")
+
+# ============================================================
+# Test 7: iFFBS_ Comparison with Heatmap Visualization
+# ============================================================
+println("\n7️⃣ Testing iFFBS_ with heatmap visualization")
+
+using GLMakie
+
+# Load real data and parameters
+println("Loading data and parameters from get_pars_and_data.jl...")
+include("get_pars_and_data.jl")
+
+println("Data loaded successfully!")
+println("m = $m, maxt = $maxt, G = $G, numTests = $numTests")
+
+# Process data similar to MCMCiFFBS_.jl initialization
+numStates = 4
+
+# Initialize parameters from initParamValues
+alphaStarInit = initParamValues[1]
+lambdaInit = initParamValues[2]
+betaInit = initParamValues[3]
+qInit = initParamValues[4]
+tauInit = initParamValues[5]
+a2Init = initParamValues[6]
+b2Init = initParamValues[7]
+c1Init = initParamValues[8]
+
+nuEInit = zeros(numNuTimes)
+nuIInit = zeros(numNuTimes)
+for i_nu in 1:numNuTimes
+    nuEInit[i_nu] = initParamValues[7 + 1 + i_nu]
+end
+for i_nu in 1:numNuTimes
+    nuIInit[i_nu] = initParamValues[7 + 1 + numNuTimes + i_nu]
+end
+
+xiInit = Int(initParamValues[7 + 2 + 2*numNuTimes])
+
+thetasInit = zeros(numTests)
+rhosInit = zeros(numTests)
+phisInit = zeros(numTests)
+etasInit = zeros(numSeasons)
+
+nParsNotGibbs = G + 4 + 3 + 2*numNuTimes + 1
+for iTest in 1:numTests
+    thetasInit[iTest] = initParamValues[nParsNotGibbs-G+1+iTest]
+end
+for iTest in 1:numTests
+    rhosInit[iTest] = initParamValues[nParsNotGibbs-G+1+numTests+iTest]
+end
+for iTest in 1:numTests
+    phisInit[iTest] = initParamValues[nParsNotGibbs-G+1+2*numTests+iTest]
+end
+for s in 1:numSeasons
+    etasInit[s] = initParamValues[nParsNotGibbs-G+1+3*numTests+s]
+end
+
+# Set up state variables
+alpha_js = zeros(Float64, G)
+for g in 1:G
+    alpha_js[g] = alphaStarInit * lambdaInit
+end
+
+beta = betaInit
+q = qInit
+tau = tauInit
+a2 = a2Init
+b2 = b2Init
+c1 = c1Init
+
+nuEs = copy(nuEInit)
+nuIs = copy(nuIInit)
+xi = copy(xiInit)
+
+thetas = copy(thetasInit)
+rhos = copy(rhosInit)
+phis = copy(phisInit)
+etas = copy(etasInit)
+
+seasonVec = MakeSeasonVec_(numSeasons, startingQuarter, maxt)
+
+# Initialize X from Xinit
+X = copy(Xinit)
+
+# Calculate age matrix
+ageMat = fill(-10, m, maxt)
+for i in 1:m
+    mint_i = max(1, birthTimes[i])
+    for tt in mint_i:maxt
+        ageMat[i, tt] = tt - birthTimes[i]
+    end
+end
+
+# Get social group structure
+SocGroup = LocateIndiv(TestMat, birthTimes)
+
+# Calculate probability matrices
+probDyingMat = zeros(Float64, m, maxt)
+LogProbDyingMat = zeros(Float64, m, maxt)
+LogProbSurvMat = zeros(Float64, m, maxt)
+
+for i in 1:m
+    for tt in 1:maxt
+        age_i_tt = ageMat[i, tt]
+        if age_i_tt > 0
+            probDyingMat[i, tt] = TrProbDeath_(Float64(age_i_tt), a2, b2, c1, false)
+            LogProbDyingMat[i, tt] = TrProbDeath_(Float64(age_i_tt), a2, b2, c1, true)
+            LogProbSurvMat[i, tt] = log(1.0 - probDyingMat[i, tt])
+        end
+    end
+end
+
+# Initialize numInfecMat and mPerGroup
+numInfecMat = zeros(Int, G, maxt-1)
+for tt in 1:maxt-1
+    for ii in 2:m
+        if X[ii, tt] == 1
+            g_i_tt = SocGroup[ii, tt]
+            if g_i_tt != 0
+                numInfecMat[g_i_tt, tt] += 1
+            end
+        end
+    end
+end
+
+mPerGroup = zeros(Int, G, maxt)
+for tt in 1:maxt
+    for ii in 2:m
+        if (X[ii, tt] == 0) || (X[ii, tt] == 1) || (X[ii, tt] == 3)
+            g_i_tt = SocGroup[ii, tt]
+            if g_i_tt != 0
+                mPerGroup[g_i_tt, tt] += 1
+            end
+        end
+    end
+end
+
+# Process test data
+TestField = TestMatAsField_CORRECTED(TestMat, m)
+TestTimes = TestTimesField(TestMat, m)
+
+idVecAll = collect(1:m)
+
+# Working matrices for iFFBS
+corrector = zeros(Float64, maxt, numStates)
+predProb = zeros(Float64, maxt, numStates)
+filtProb = zeros(Float64, maxt, numStates)
+
+# Calculate transition probabilities
+logProbRest = zeros(Float64, maxt-1, numStates, m)
+logTransProbRest = zeros(Float64, numStates, maxt-1)
+
+# Transition probability matrices (simplified initialization)
+logProbStoSgivenSorE = zeros(Float64, m, maxt)
+logProbStoEgivenSorE = zeros(Float64, m, maxt)
+logProbStoSgivenI = zeros(Float64, m, maxt)
+logProbStoEgivenI = zeros(Float64, m, maxt)
+logProbStoSgivenD = zeros(Float64, m, maxt)
+logProbStoEgivenD = zeros(Float64, m, maxt)
+
+# These will be calculated properly in the loop
+for tt in 1:maxt
+    for i in 1:m
+        g_i = SocGroup[i, tt]
+        if g_i > 0
+            m_g_tt = mPerGroup[g_i, tt]
+            if i >= 2
+                m_g_tt += 1  # Add current individual
+            end
+            
+            if m_g_tt > 0
+                logProbStoSgivenSorE[i, tt] = log(1.0 - alpha_js[g_i])
+                logProbStoEgivenSorE[i, tt] = log(alpha_js[g_i])
+            end
+        end
+    end
+end
+
+logProbEtoE = log(1.0 - 1.0/tau)
+logProbEtoI = log(1.0/tau)
+
+# Update tracking
+whichRequireUpdate = [Int[] for _ in 1:maxt]
+sumLogCorrector = 0.0
+
+# Test on first individual
+id_test = 1
+birthTime_test = birthTimes[id_test]
+startTime_test = startSamplingPeriod[id_test]
+endTime_test = endSamplingPeriod[id_test]
+
+println("Running iFFBS_ 10 times in Julia and R...")
+
+# Storage for results
+n_runs = 10
+maxt_range = endTime_test - startTime_test + 1
+julia_results = zeros(n_runs, maxt_range, numStates)
+r_results = zeros(n_runs, maxt_range, numStates)
+
+# Run Julia version
+println("Running Julia version...")
+for run in 1:n_runs
+    Random.seed!(1000 + run)
+    
+    # Reset state
+    alpha_js_copy = copy(alpha_js)
+    X_copy = copy(X)
+    corrector_copy = zeros(Float64, maxt, numStates)
+    predProb_copy = zeros(Float64, maxt, numStates)
+    filtProb_copy = zeros(Float64, maxt, numStates)
+    sumLogCorrector_copy = 0.0
+    
+    iFFBS_(alpha_js_copy, beta, q, tau, k, K,
+           probDyingMat, LogProbDyingMat, LogProbSurvMat,
+           logProbRest, nuTimes, nuEs, nuIs,
+           thetas, rhos, phis, etas,
+           id_test, birthTime_test, startTime_test, endTime_test,
+           X_copy, seasonVec, TestField[id_test], TestTimes[id_test], CaptHist,
+           corrector_copy, predProb_copy, filtProb_copy,
+           logTransProbRest, numInfecMat, SocGroup, mPerGroup, idVecAll,
+           logProbStoSgivenSorE, logProbStoEgivenSorE,
+           logProbStoSgivenI, logProbStoEgivenI,
+           logProbStoSgivenD, logProbStoEgivenD,
+           logProbEtoE, logProbEtoI,
+           whichRequireUpdate, sumLogCorrector_copy)
+    
+    # Extract relevant time range
+    julia_results[run, :, :] = filtProb_copy[startTime_test:endTime_test, :]
+end
+
+# Run R version
+println("Running R version...")
+
+# Transfer data to R
+@rput m maxt numStates G id_test birthTime_test startTime_test endTime_test maxt_range
+@rput beta q tau k K
+@rput probDyingMat LogProbDyingMat LogProbSurvMat logProbRest
+@rput nuTimes nuEs nuIs thetas rhos phis etas
+@rput X seasonVec CaptHist
+@rput logTransProbRest numInfecMat SocGroup mPerGroup idVecAll
+@rput logProbStoSgivenSorE logProbStoEgivenSorE
+@rput logProbStoSgivenI logProbStoEgivenI
+@rput logProbStoSgivenD logProbStoEgivenD
+@rput logProbEtoE logProbEtoI n_runs alpha_js
+
+# Transfer TestField and TestTimes for the specific individual
+TestField_id = TestField[id_test]
+TestTimes_id = TestTimes[id_test]
+@rput TestField_id TestTimes_id
+
+R"""
+# Storage for results
+r_results <- array(0, dim = c(n_runs, maxt_range, numStates))
+
+# Convert whichRequireUpdate to R list
+whichRequireUpdate_r <- vector("list", maxt)
+for (i in 1:maxt) {
+    whichRequireUpdate_r[[i]] <- integer(0)
+}
+
+for (run in 1:n_runs) {
+    set.seed(1000 + run)
+    
+    # Reset state
+    alpha_js_r <- alpha_js
+    X_r <- X
+    corrector_r <- matrix(0, maxt, numStates)
+    predProb_r <- matrix(0, maxt, numStates)
+    filtProb_r <- matrix(0, maxt, numStates)
+    sumLogCorrector_r <- 0.0
+    
+    iFFBS_(alpha_js_r, beta, q, tau, k, K,
+           probDyingMat, LogProbDyingMat, LogProbSurvMat,
+           logProbRest, nuTimes, nuEs, nuIs,
+           thetas, rhos, phis, etas,
+           id_test, birthTime_test, startTime_test, endTime_test,
+           X_r, seasonVec, TestField_id, TestTimes_id, CaptHist,
+           corrector_r, predProb_r, filtProb_r,
+           logTransProbRest, numInfecMat, SocGroup, mPerGroup, idVecAll,
+           logProbStoSgivenSorE, logProbStoEgivenSorE,
+           logProbStoSgivenI, logProbStoEgivenI,
+           logProbStoSgivenD, logProbStoEgivenD,
+           logProbEtoE, logProbEtoI,
+           whichRequireUpdate_r, sumLogCorrector_r)
+    
+    # Extract relevant time range
+    r_results[run, , ] <- filtProb_r[startTime_test:endTime_test, ]
+}
+"""
+
+r_results = @rget r_results
+
+println("Creating heatmap visualization...")
+
+# Compute differences
+diff_results = abs.(julia_results .- r_results)
+
+# Create figure with 3 subplots
+fig = Figure(resolution = (1800, 600))
+
+# Julia results (average across runs)
+ax1 = Axis(fig[1, 1], 
+           title = "Julia iFFBS_ (avg filtProb)",
+           xlabel = "Time",
+           ylabel = "State")
+julia_avg = mean(julia_results, dims=1)[1, :, :]
+hm1 = heatmap!(ax1, 1:maxt_range, 1:numStates, julia_avg',
+               colormap = :viridis)
+Colorbar(fig[1, 2], hm1, label = "Probability")
+
+# R results (average across runs)
+ax2 = Axis(fig[1, 3],
+           title = "R iFFBS_ (avg filtProb)",
+           xlabel = "Time",
+           ylabel = "State")
+r_avg = mean(r_results, dims=1)[1, :, :]
+hm2 = heatmap!(ax2, 1:maxt_range, 1:numStates, r_avg',
+               colormap = :viridis)
+Colorbar(fig[1, 4], hm2, label = "Probability")
+
+# Difference heatmap
+ax3 = Axis(fig[1, 5],
+           title = "Absolute Difference |Julia - R|",
+           xlabel = "Time",
+           ylabel = "State")
+diff_avg = mean(diff_results, dims=1)[1, :, :]
+hm3 = heatmap!(ax3, 1:maxt_range, 1:numStates, diff_avg',
+               colormap = :hot)
+Colorbar(fig[1, 6], hm3, label = "Abs Difference")
+
+display(fig)
+
+# Print summary statistics
+println("\n" * "="^60)
+println("Summary Statistics:")
+println("="^60)
+println("Julia mean:  ", mean(julia_results))
+println("R mean:      ", mean(r_results))
+println("Max diff:    ", maximum(diff_results))
+println("Mean diff:   ", mean(diff_results))
+println("Median diff: ", median(diff_results))
+
+if maximum(diff_results) < 1e-10
+    println("\n✅ PASS - Results match within tolerance")
+else
+    println("\n⚠️  WARNING - Results differ by more than 1e-10")
+    println("This may indicate implementation differences")
+end
+
+println("\n🏁 iFFBS_ comparison completed!")

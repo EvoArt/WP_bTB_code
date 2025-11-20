@@ -300,8 +300,8 @@ function iFFBS_(alpha_js,
     println("corrector = $(corrector)")
     println("logTransProbRest = $(logTransProbRest)") 
   end
-  #newStatus = sample(states,Weights(probs))
-  newStatus = states[rand(Categorical(probs))] 
+  newStatus = sample(states,Weights(probs))
+  #newStatus = states[rand(Categorical(probs))] 
   ##println("newStatus = $newStatus")
 
   X[id, endTime] = newStatus

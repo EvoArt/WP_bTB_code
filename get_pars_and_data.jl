@@ -1,0 +1,600 @@
+"""
+    runmodel_RDS.jl
+
+Julia version of the R script to run the MCMC-iFFBS model for badger TB transmission.
+This script loads data from RDS files, sets up initial conditions, and runs the MCMC algorithm.
+"""
+
+## Load required packages
+using JLD2 # to use 0-based indexing
+using Distributions
+using Random
+using DataFrames
+using RData
+using Statistics
+using CSV
+using StatsBase
+using StatsFuns
+
+## Set seed
+seed = 2
+Random.seed!(seed)
+
+## Set folder name for results to be stored in
+modelFileName = "outputs_seed$seed/"
+
+## Set path to data
+dataDirectory = "WPbadgerData/"
+
+#########################################
+#####      Set hyperparameters      #####
+#########################################
+
+method = 1  # "HMC"
+# method = 2  # "RWMH"
+epsilon = 0.01
+epsilonalphas = 0.2
+epsilonbq = 0.05
+epsilontau = epsilon # 0.2
+epsilonc1 = 0.05
+epsilonsens = 0.1
+lambda_b = 1
+beta_b = 1
+tau_b = 0.01
+a2_b = 1
+b2_b = 1
+c1_b = 1
+xi_mean = 81
+xi_sd = 60
+sd_xi_min = 8
+k = 1
+
+L = 30           # only used if method=="HMC"
+
+#########################################
+#####      Run MCMC-iFFBS code      #####
+#########################################
+
+N = 25000         # number of MCMC iterations
+blockSize = 1000  # outputs will be saved every 'blockSize' iterations
+
+## Create directory for the outputs (posterior samples and hidden states)
+resultsDirectory = dataDirectory * modelFileName # where save Julia outputs
+if !isdir(resultsDirectory)
+    mkpath(resultsDirectory)
+end
+methodName = method == 1 ? "HMC" : "MH"
+path = resultsDirectory * methodName * "/"
+if !isdir(path)
+    mkpath(path)
+end
+
+for i in 1:blockSize:N
+    numFrom = i
+    numTo = i+blockSize-1
+    block = path * "Iters_from$numFrom" * "to$numTo" * "/"
+    if !isdir(block)
+        mkpath(block)
+    end
+end
+
+## Load data (using RData.jl to read RDS files directly)
+groupNames = RData.load(dataDirectory * "groupNames.rds")
+TestMat_df = RData.load(dataDirectory * "TestMat.rds")
+CaptHist = RData.load(dataDirectory * "CaptHist.rds")
+CaptEffort = Array(RData.load(dataDirectory * "CaptEffort.rds"))
+birthTimes = Int64.(RData.load(dataDirectory * "birthTimes.rds"))
+startSamplingPeriod = Int64.(RData.load(dataDirectory * "startSamplingPeriod.rds"))
+endSamplingPeriod = Int64.(RData.load(dataDirectory * "endSamplingPeriod.rds"))
+capturesAfterMonit = Int64.(RData.load(dataDirectory * "capturesAfterMonit.rds"))
+timeVec = RData.load(dataDirectory * "timeVec.rds")
+dfTimes = RData.load(dataDirectory * "dfTimes.rds")
+
+## Extract summaries from data
+G = length(groupNames)
+m = length(birthTimes)
+maxt = size(CaptHist, 2)
+# Extract test names before converting TestMat to matrix
+testNames = names(TestMat_df)[4:end]
+numTests = length(testNames)
+numSeasons = 4
+
+startingQuarter = 1  # because timeVec starts on Q1
+
+## Creating Xinit (initial values for the hidden states)
+Xinit = zeros(Float64, m, maxt)  # Use Float64 to allow NaN values
+
+# Define tauInit early (needed for Xinit calculations)
+tauInit = rand(Uniform(4, 16))  # Equivalent to R: tauInit <- runif(n = 1, 4, 16)
+
+# Convert TestMat DataFrame to matrix upfront (like Rcpp does)
+TestMat = Array(TestMat_df)  # Convert to matrix for all operations
+# Replace missing values with NaN for numeric operations
+TestMat = coalesce.(TestMat, NaN)
+# TestMat = @zero_based TestMat  # Keep 1-based like R
+
+# Apply 1-based indexing (keep everything like R)
+Xinit = Float64.(Xinit)
+# CaptHist = CaptHist  # Keep as is
+# CaptEffort = Array(CaptEffort)  # Keep as is
+# birthTimes = Int64.(birthTimes)  # Keep as is
+# startSamplingPeriod = startSamplingPeriod  # Keep as is
+# endSamplingPeriod = endSamplingPeriod  # Keep as is
+# capturesAfterMonit = capturesAfterMonit  # Keep as is
+# timeVec = timeVec  # Keep as is
+# dfTimes = dfTimes  # Keep as is
+
+# putting NAs before birth date 
+for i in 1:m
+    if birthTimes[i] > 1
+        Xinit[i, 1:(birthTimes[i]-1)] .= NaN
+    end
+end
+
+# putting infection whenever there's a positive result
+for i in 1:m
+    # Find rows for this individual (DataFrame indexing)
+    individual_rows = findall(row -> row[1] == i, eachrow(TestMat))
+    
+    for tt in 1:maxt
+        # Find rows for this time point by filtering TestMat directly
+        time_rows = filter(row_idx -> TestMat[row_idx, 2] == tt, individual_rows)      
+        
+        if length(time_rows) > 0
+            # Get test results for this time (columns 3:end are test results)
+            test_results = hcat([TestMat[row, 3:end] for row in time_rows]...)
+            
+            if any(x -> x == 1, test_results)
+                # infection starting at time of first positive test result
+                infecTimesEarlier = 0
+                tStartInfec = max(birthTimes[i]+1, startSamplingPeriod[i], tt-infecTimesEarlier, 1)
+                Xinit[i, Int(tStartInfec)] = 3.0  # infection starting as Exposed (state 3)
+            end
+        end
+    end
+end
+
+# Assuming E becomes I some quarters later and forcing no E->S and I->E
+for i in 1:m
+    if any(x -> x == 3, Xinit[i, :])
+        firstInfectedTime = findfirst(x -> x == 3, Xinit[i, :])
+        if firstInfectedTime < maxt
+            Xinit[i, firstInfectedTime:end] .= 3.0  # Exposed from first infection time onward
+        end
+        
+        timefromEtoI = ceil(rand(Exponential(1/tauInit)))
+        firstInfectiousTime = firstInfectedTime + Int(timefromEtoI)
+        if firstInfectiousTime < maxt
+            Xinit[i, firstInfectiousTime:end] .= 1.0  # Infectious after transition period
+        end
+    end
+end
+
+# putting 9 after last capture dates
+lastCaptureTimes = [findlast(x -> x == 1, CaptHist[i, :]) for i in 1:m]
+for i in 1:m
+    if lastCaptureTimes[i] !== nothing && lastCaptureTimes[i] < maxt
+        Xinit[i, lastCaptureTimes[i]+1:end] .= 9.0  # Use Float64
+    end
+end
+
+# putting NAs before the start of monitoring period
+for i in 1:m
+    if startSamplingPeriod[i] > 1
+        Xinit[i, 1:(startSamplingPeriod[i]-1)] .= NaN
+    end
+end
+
+# putting NAs after the end of monitoring period
+for i in 1:m
+    if endSamplingPeriod[i] < maxt
+        Xinit[i, (endSamplingPeriod[i]+1):end] .= NaN
+    end
+end
+
+for i in 1:m
+    if all(isnan, Xinit[i, :])
+        error("There are individuals with only NAs")
+    end
+    
+    t0_i = startSamplingPeriod[i]
+    valid_states = Xinit[i, t0_i:endSamplingPeriod[i]]
+    if any(x -> !isnan(x) && x ∉ [0.0, 1.0, 3.0, 9.0], valid_states)
+        error("individuals must have initial values 0,1,3,or 9 during their sampling time period")
+    end
+end
+
+## Set Brock changepoint
+# For matrices, we need to add a new column for Brock2
+# Insert new column after column 3 (index 3 in 1-based)
+new_col = fill(NaN, size(TestMat, 1))
+TestMat = hcat(TestMat[:, 1:4], new_col, TestMat[:, 5:end])
+testNames = ["Brock1", "Brock2", testNames[2:end]]
+numTests = size(TestMat, 2) - 3  # Update numTests after adding Brock2 column
+
+# initial Brock changepoint
+hp_xi = [xi_mean, xi_sd]
+xiInit = findfirst(x -> x >= 2000, timeVec)  # Julia is 1-based like R, no need to subtract 1
+changePointBrock = xiInit
+
+## This will be the initial TestMat
+for irow in 1:size(TestMat, 1)
+    if TestMat[irow, 1] >= changePointBrock  
+        if !isnan(TestMat[irow, 4])  # column 4 is Brock1 (1-based)
+            TestMat[irow, 5] = TestMat[irow, 4]  # Move Brock1 to Brock2
+            TestMat[irow, 4] = NaN  # Set Brock1 to NaN
+        end
+    end
+end
+
+# put NAs in test results outside of the monitoring period
+County = 0
+for irow in 1:size(TestMat, 1)
+    id_val = TestMat[irow, 2]  # column 1 is idNumber (1-based)
+    time_val = TestMat[irow, 1]  # column 2 is time (1-based)
+    
+    # Handle NaN values - skip rows with missing id or time
+    if isnan(id_val) || isnan(time_val)
+        continue
+    end
+    
+    id = Int(id_val)
+    time = Int(time_val)
+    
+    if (time < startSamplingPeriod[id]) || (time > endSamplingPeriod[id])
+        for col in 4:size(TestMat, 2)  # test result columns start at index 4 (1-based)
+            TestMat[irow, col] = NaN
+        end
+        global County += 1
+    end
+end
+
+# checking which animals 
+# -- were born before monitoring started in their groups
+# -- after 1980
+
+vec = DataFrame(id=Int[], firstGroup=Int[], birthTime=Float64[], startSamplingPeriod=Float64[])
+ids = Int[]
+
+for id in 1:m
+    TestMat_i = TestMat_df[TestMat_df.idNumber .== id, :]
+
+    time = TestMat_i.time[1]
+    g    = TestMat_i.group[1]
+
+    if birthTimes[id] < startSamplingPeriod[id] && birthTimes[id] > 1
+        push!(ids, id)
+        push!(vec, (id, g, birthTimes[id], startSamplingPeriod[id]))
+    end
+end
+
+gs = sort(unique(vec.firstGroup))
+
+starts = Int[]
+starts_year = Any[]
+for g_i in 1:length(gs)
+    g = Int(gs[g_i])  # Convert group to integer
+    effort_row = CaptEffort[g, :]
+    ones_indices = findall(x -> x == 1, effort_row)
+    first_one_idx = minimum(ones_indices)  # Equivalent to R's min(which(...)) 
+    start_g = first_one_idx  # Keep 1-based for dfTimes lookup
+    time_idx = findfirst(x -> x == start_g, dfTimes.idx)  # dfTimes is 1-based
+    start_g_year = dfTimes.time[time_idx]
+    push!(starts, start_g)
+    push!(starts_year, start_g_year)
+end
+
+ord = sortperm(starts)
+starts = starts[ord]
+starts_year = starts_year[ord]
+gs = gs[ord]
+nuTimes = vcat([1], starts)  # Keep 1-based
+numNuTimes = length(nuTimes)
+
+TestMat_ = TestMat  # TestMat is already a matrix with 0-based indexing
+CaptEffort_ = Matrix(CaptEffort)
+
+thetaNames = ["theta$i" for i in 1:numTests]
+rhoNames = ["rho$i" for i in 1:numTests]
+phiNames = ["phi$i" for i in 1:numTests]
+etaNames = ["eta$i" for i in 1:numSeasons]
+parNames = vcat(
+    ["alpha$i" for i in 1:G],
+    "lambda", "beta", "q", "tau", 
+    "a2", "b2", "c1", 
+    ["nuE$i" for i in 0:numNuTimes-1],
+    ["nuI$i" for i in 0:numNuTimes-1],
+    "xi",
+    thetaNames, rhoNames, phiNames, etaNames
+)
+
+socGroupSizes = fill(0, G)
+for j in 1:G  # Use 1-based for groups
+    # Find rows where group == j (column 3 is group)
+    group_rows = findall(row -> row[3] == j, eachrow(TestMat))
+    # Extract idNumber from those rows (column 1 is idNumber)
+    ids_in_group = [TestMat[row, 1] for row in group_rows if !isnan(TestMat[row, 1])]
+    socGroupSizes[j] = length(unique(ids_in_group))
+end
+
+K = median(socGroupSizes)
+
+# hyperparameter values
+hp_lambda = [1, lambda_b]
+hp_beta = [1, beta_b]
+hp_q = [1, 1]
+hp_tau = [1, tau_b]
+hp_a2 = [1, a2_b]
+hp_b2 = [1, b2_b]
+hp_c1 = [1, c1_b]
+hp_nu = [1, 1, 1]
+# hp_xi initialised above
+hp_theta = [1, 1]
+hp_rho = [1, 1]
+hp_phi = [1, 1]
+hp_eta = [1, 1]
+
+hp = Dict(
+    :hp_lambda => hp_lambda, 
+    :hp_beta => hp_beta, 
+    :hp_q => hp_q, 
+    :hp_tau => hp_tau, 
+    :hp_a2 => hp_a2, 
+    :hp_b2 => hp_b2, 
+    :hp_c1 => hp_c1, 
+    :hp_nu => hp_nu, 
+    :hp_xi => hp_xi,
+    :hp_theta => hp_theta, 
+    :hp_rho => hp_rho, 
+    :hp_phi => hp_phi, 
+    :hp_eta => hp_eta
+)
+
+############################################################################
+
+# Using Julia code --------------------------------------
+
+# Choosing initial parameter values from the prior -----------------------
+
+# ## This is equivalent to using 
+# initParamValues=Inf
+# in which case Julia will generates initial values from the prior
+
+lambdaInit = rand(Gamma(1, 1/100))
+alphaInit = rand(Gamma(1, 1)) # alphastar - single value (not per group)
+betaInit = rand(Gamma(1, 1/100))
+qInit = rand(Beta(hp_q[1], hp_q[2]))
+# tauInit  # now done above in order to be used in Xinit
+a2Init = rand(Gamma(hp_a2[1], 1/100))
+b2Init = rand(Gamma(hp_b2[1], 1/100))
+c1Init = rand(Gamma(hp_c1[1], 1/100))
+
+nuVecInit = rand(Dirichlet([8, 1, 1]), numNuTimes)
+nuEInit = nuVecInit[2, :]  # Extract row 2 (should have length numNuTimes)
+nuIInit = nuVecInit[3, :]  # Extract row 3 (should have length numNuTimes)
+# xiInit was sampled above, and TestMat is constructed given xiInit
+thetasInit = rand(Uniform(0.5, 1), numTests)
+rhosInit = rand(Uniform(0.2, 0.8), numTests)
+phisInit = rand(Uniform(0.7, 1), numTests)
+etasInit = rand(Beta(hp_eta[1], hp_eta[2]), numSeasons)
+
+initParamValues = vcat(
+    alphaInit, lambdaInit, betaInit, qInit, tauInit, 
+    a2Init, b2Init, c1Init, nuEInit, nuIInit, xiInit,
+    thetasInit, rhosInit, phisInit, etasInit
+)
+
+# Debug parameter lengths
+println("Debug: Parameter lengths:")
+println("alphaInit: 1 (alphaStar - single value)")
+println("lambdaInit: 1")
+println("betaInit: 1")
+println("qInit: 1")
+println("tauInit: 1")
+println("a2Init: 1")
+println("b2Init: 1")
+println("c1Init: 1")
+println("nuEInit: $(length(nuEInit)) (should be numNuTimes=$numNuTimes)")
+println("nuIInit: $(length(nuIInit)) (should be numNuTimes=$numNuTimes)")
+println("xiInit: 1")
+println("thetasInit: $(length(thetasInit)) (should be numTests=$numTests)")
+println("rhosInit: $(length(rhosInit)) (should be numTests=$numTests)")
+println("phisInit: $(length(phisInit)) (should be numTests=$numTests)")
+println("etasInit: $(length(etasInit)) (should be numSeasons=$numSeasons)")
+println("Total initParamValues: $(length(initParamValues))")
+# Expected: 1 alpha + 1 lambda + 1 beta + 1 q + 1 tau + 1 a2 + 1 b2 + 1 c1 + numNuTimes nuE + numNuTimes nuI + 1 xi + numTests thetas + numTests rhos + numTests phis + numSeasons etas
+expected_total = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + numNuTimes + numNuTimes + 1 + numTests + numTests + numTests + numSeasons
+println("Expected total: $expected_total")
+println("Match: $(length(initParamValues) == expected_total ? "✅" : "❌")")
+
+# initParamValues = [Inf] # to generate initial values from the prior
+
+############################################################################
+
+## Include the MCMC-iFFBS function and helper functions
+
+## Fit model
+println("Starting MCMC-iFFBS algorithm...")
+
+# Convert NaN to -1 for integer matrix (MCMC functions expect Int)
+Xinit_int = copy(Xinit)
+Xinit_int[isnan.(Xinit_int)] .= -1
+
+# Use user-supplied initial values instead of generating from prior
+# initParamValues = Inf  # This would generate from prior
+# Instead, use the user-supplied values
+initParamValues = vcat(
+    alphaInit, lambdaInit, betaInit, qInit, tauInit, 
+    a2Init, b2Init, c1Init, nuEInit, nuIInit, xiInit,
+    thetasInit, rhosInit, phisInit, etasInit
+)
+
+numStates = 4
+
+# Initialize parameters from initParamValues
+alphaStarInit = initParamValues[1]
+lambdaInit = initParamValues[2]
+betaInit = initParamValues[3]
+qInit = initParamValues[4]
+tauInit = initParamValues[5]
+a2Init = initParamValues[6]
+b2Init = initParamValues[7]
+c1Init = initParamValues[8]
+
+nuEInit = zeros(numNuTimes)
+nuIInit = zeros(numNuTimes)
+for i_nu in 1:numNuTimes
+    nuEInit[i_nu] = initParamValues[7 + 1 + i_nu]
+end
+for i_nu in 1:numNuTimes
+    nuIInit[i_nu] = initParamValues[7 + 1 + numNuTimes + i_nu]
+end
+
+xiInit = Int(initParamValues[7 + 2 + 2*numNuTimes])
+
+thetasInit = zeros(numTests)
+rhosInit = zeros(numTests)
+phisInit = zeros(numTests)
+etasInit = zeros(numSeasons)
+
+nParsNotGibbs = G + 4 + 3 + 2*numNuTimes + 1
+for iTest in 1:numTests
+    thetasInit[iTest] = initParamValues[nParsNotGibbs-G+1+iTest]
+end
+for iTest in 1:numTests
+    rhosInit[iTest] = initParamValues[nParsNotGibbs-G+1+numTests+iTest]
+end
+for iTest in 1:numTests
+    phisInit[iTest] = initParamValues[nParsNotGibbs-G+1+2*numTests+iTest]
+end
+for s in 1:numSeasons
+    etasInit[s] = initParamValues[nParsNotGibbs-G+1+3*numTests+s]
+end
+
+# Set up state variables
+alpha_js = zeros(Float64, G)
+for g in 1:G
+    alpha_js[g] = alphaStarInit * lambdaInit
+end
+
+beta = betaInit
+q = qInit
+tau = tauInit
+a2 = a2Init
+b2 = b2Init
+c1 = c1Init
+
+nuEs = copy(nuEInit)
+nuIs = copy(nuIInit)
+xi = copy(xiInit)
+
+thetas = copy(thetasInit)
+rhos = copy(rhosInit)
+phis = copy(phisInit)
+etas = copy(etasInit)
+
+seasonVec = MakeSeasonVec_(numSeasons, startingQuarter, maxt)
+
+# Initialize X from Xinit
+X = copy(Xinit)
+
+# Calculate age matrix
+ageMat = fill(-10, m, maxt)
+for i in 1:m
+    mint_i = max(1, birthTimes[i])
+    for tt in mint_i:maxt
+        ageMat[i, tt] = tt - birthTimes[i]
+    end
+end
+
+# Get social group structure
+SocGroup = LocateIndiv(TestMat, birthTimes)
+
+# Calculate probability matrices
+probDyingMat = zeros(Float64, m, maxt)
+LogProbDyingMat = zeros(Float64, m, maxt)
+LogProbSurvMat = zeros(Float64, m, maxt)
+
+for i in 1:m
+    for tt in 1:maxt
+        age_i_tt = ageMat[i, tt]
+        if age_i_tt > 0
+            probDyingMat[i, tt] = TrProbDeath_(Float64(age_i_tt), a2, b2, c1, false)
+            LogProbDyingMat[i, tt] = TrProbDeath_(Float64(age_i_tt), a2, b2, c1, true)
+            LogProbSurvMat[i, tt] = log(1.0 - probDyingMat[i, tt])
+        end
+    end
+end
+
+# Initialize numInfecMat and mPerGroup
+numInfecMat = zeros(Int, G, maxt-1)
+for tt in 1:maxt-1
+    for ii in 2:m
+        if X[ii, tt] == 1
+            g_i_tt = SocGroup[ii, tt]
+            if g_i_tt != 0
+                numInfecMat[g_i_tt, tt] += 1
+            end
+        end
+    end
+end
+
+mPerGroup = zeros(Int, G, maxt)
+for tt in 1:maxt
+    for ii in 2:m
+        if (X[ii, tt] == 0) || (X[ii, tt] == 1) || (X[ii, tt] == 3)
+            g_i_tt = SocGroup[ii, tt]
+            if g_i_tt != 0
+                mPerGroup[g_i_tt, tt] += 1
+            end
+        end
+    end
+end
+
+# Process test data
+TestField = TestMatAsField_CORRECTED(TestMat, m)
+TestTimes = TestTimesField(TestMat, m)
+
+idVecAll = collect(1:m)
+
+# Working matrices for iFFBS
+corrector = zeros(Float64, maxt, numStates)
+predProb = zeros(Float64, maxt, numStates)
+filtProb = zeros(Float64, maxt, numStates)
+
+# Calculate transition probabilities
+logProbRest = zeros(Float64, maxt-1, numStates, m)
+logTransProbRest = zeros(Float64, numStates, maxt-1)
+
+# Transition probability matrices (simplified initialization)
+logProbStoSgivenSorE = zeros(Float64, m, maxt)
+logProbStoEgivenSorE = zeros(Float64, m, maxt)
+logProbStoSgivenI = zeros(Float64, m, maxt)
+logProbStoEgivenI = zeros(Float64, m, maxt)
+logProbStoSgivenD = zeros(Float64, m, maxt)
+logProbStoEgivenD = zeros(Float64, m, maxt)
+
+# These will be calculated properly in the loop
+for tt in 1:maxt
+    for i in 1:m
+        g_i = SocGroup[i, tt]
+        if g_i > 0
+            m_g_tt = mPerGroup[g_i, tt]
+            if i >= 2
+                m_g_tt += 1  # Add current individual
+            end
+            
+            if m_g_tt > 0
+                logProbStoSgivenSorE[i, tt] = log(1.0 - alpha_js[g_i])
+                logProbStoEgivenSorE[i, tt] = log(alpha_js[g_i])
+            end
+        end
+    end
+end
+
+logProbEtoE = log(1.0 - 1.0/tau)
+logProbEtoI = log(1.0/tau)
+
+# Update tracking
+whichRequireUpdate = [Int[] for _ in 1:maxt]
+sumLogCorrector = 0.0
