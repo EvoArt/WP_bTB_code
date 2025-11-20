@@ -195,6 +195,38 @@ iFFBS_ <- function(alpha_js, b, q, tau, k, K, probDyingMat, LogProbDyingMat, Log
     invisible(.Call(`_BIID_iFFBS_`, alpha_js, b, q, tau, k, K, probDyingMat, LogProbDyingMat, LogProbSurvMat, logProbRest, nuTimes, nuEs, nuIs, thetas, rhos, phis, etas, id, birthTime, startTime, endTime, X, seasonVec, TestMat_i, TestTimes_i, CaptHist, corrector, predProb, filtProb, logTransProbRest, numInfecMat, SocGroup, mPerGroup, idVecAll, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, logProbEtoE, logProbEtoI, whichRequireUpdate, sumLogCorrector))
 }
 
+iFFBS_initializeForwardFiltering <- function(birthTime, startTime, nuTimes, nuEs, nuIs, predProb, t0, numStates) {
+    .Call(`_BIID_iFFBS_initializeForwardFiltering`, birthTime, startTime, nuTimes, nuEs, nuIs, predProb, t0, numStates)
+}
+
+iFFBS_forwardFilteringFirstStep <- function(corrector, predProb, filtProb, logTransProbRest, t0, maxt, numStates) {
+    .Call(`_BIID_iFFBS_forwardFilteringFirstStep`, corrector, predProb, filtProb, logTransProbRest, t0, maxt, numStates)
+}
+
+iFFBS_forwardFilteringLoop <- function(predProb, filtProb, corrector, logTransProbRest, probDyingMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbEtoE, logProbEtoI, SocGroup, id, t0, maxt_i, numStates) {
+    .Call(`_BIID_iFFBS_forwardFilteringLoop`, predProb, filtProb, corrector, logTransProbRest, probDyingMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbEtoE, logProbEtoI, SocGroup, id, t0, maxt_i, numStates)
+}
+
+iFFBS_forwardFilteringFinalStep <- function(predProb, filtProb, corrector, logTransProbRest, probDyingMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbEtoE, logProbEtoI, SocGroup, id, t0, maxt_i, maxt, numStates) {
+    .Call(`_BIID_iFFBS_forwardFilteringFinalStep`, predProb, filtProb, corrector, logTransProbRest, probDyingMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbEtoE, logProbEtoI, SocGroup, id, t0, maxt_i, maxt, numStates)
+}
+
+iFFBS_backwardSampling <- function(X, filtProb, predProb, probDyingMat, alpha_js, b, q, tau, k, K, SocGroup, mPerGroup, numInfecMat, id, birthTime, startTime, endTime, t0, maxt_i) {
+    .Call(`_BIID_iFFBS_backwardSampling`, X, filtProb, predProb, probDyingMat, alpha_js, b, q, tau, k, K, SocGroup, mPerGroup, numInfecMat, id, birthTime, startTime, endTime, t0, maxt_i)
+}
+
+iFFBS_calculateLogCorrector <- function(X, corrector, id, t0, maxt_i) {
+    .Call(`_BIID_iFFBS_calculateLogCorrector`, X, corrector, id, t0, maxt_i)
+}
+
+iFFBS_updateGroupStatistics <- function(X, numInfecMat, mPerGroup, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, alpha_js, b, q, K, SocGroup, id, idNext, m, maxt) {
+    .Call(`_BIID_iFFBS_updateGroupStatistics`, X, numInfecMat, mPerGroup, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, alpha_js, b, q, K, SocGroup, id, idNext, m, maxt)
+}
+
+iFFBS_updateTransitionProbabilities <- function(logProbRest, logTransProbRest, X, SocGroup, LogProbDyingMat, LogProbSurvMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, logProbEtoE, logProbEtoI, whichRequireUpdate, id, idNext, m, maxt, numStates) {
+    .Call(`_BIID_iFFBS_updateTransitionProbabilities`, logProbRest, logTransProbRest, X, SocGroup, LogProbDyingMat, LogProbSurvMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, logProbEtoE, logProbEtoI, whichRequireUpdate, id, idNext, m, maxt, numStates)
+}
+
 iFFBScalcLogProbRest <- function(i, ttt, logProbRest, X, SocGroup, LogProbDyingMat, LogProbSurvMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, logProbEtoE, logProbEtoI) {
     invisible(.Call(`_BIID_iFFBScalcLogProbRest`, i, ttt, logProbRest, X, SocGroup, LogProbDyingMat, LogProbSurvMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, logProbEtoE, logProbEtoI))
 }

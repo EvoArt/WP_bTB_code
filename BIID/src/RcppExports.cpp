@@ -581,6 +581,192 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// iFFBS_initializeForwardFiltering
+Rcpp::List iFFBS_initializeForwardFiltering(int birthTime, int startTime, arma::ivec& nuTimes, arma::vec& nuEs, arma::vec& nuIs, arma::mat& predProb, int t0, int numStates);
+RcppExport SEXP _BIID_iFFBS_initializeForwardFiltering(SEXP birthTimeSEXP, SEXP startTimeSEXP, SEXP nuTimesSEXP, SEXP nuEsSEXP, SEXP nuIsSEXP, SEXP predProbSEXP, SEXP t0SEXP, SEXP numStatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type birthTime(birthTimeSEXP);
+    Rcpp::traits::input_parameter< int >::type startTime(startTimeSEXP);
+    Rcpp::traits::input_parameter< arma::ivec& >::type nuTimes(nuTimesSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type nuEs(nuEsSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type nuIs(nuIsSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type predProb(predProbSEXP);
+    Rcpp::traits::input_parameter< int >::type t0(t0SEXP);
+    Rcpp::traits::input_parameter< int >::type numStates(numStatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_initializeForwardFiltering(birthTime, startTime, nuTimes, nuEs, nuIs, predProb, t0, numStates));
+    return rcpp_result_gen;
+END_RCPP
+}
+// iFFBS_forwardFilteringFirstStep
+Rcpp::List iFFBS_forwardFilteringFirstStep(arma::mat& corrector, arma::mat& predProb, arma::mat& filtProb, arma::mat& logTransProbRest, int t0, int maxt, int numStates);
+RcppExport SEXP _BIID_iFFBS_forwardFilteringFirstStep(SEXP correctorSEXP, SEXP predProbSEXP, SEXP filtProbSEXP, SEXP logTransProbRestSEXP, SEXP t0SEXP, SEXP maxtSEXP, SEXP numStatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type corrector(correctorSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type predProb(predProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type filtProb(filtProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logTransProbRest(logTransProbRestSEXP);
+    Rcpp::traits::input_parameter< int >::type t0(t0SEXP);
+    Rcpp::traits::input_parameter< int >::type maxt(maxtSEXP);
+    Rcpp::traits::input_parameter< int >::type numStates(numStatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_forwardFilteringFirstStep(corrector, predProb, filtProb, logTransProbRest, t0, maxt, numStates));
+    return rcpp_result_gen;
+END_RCPP
+}
+// iFFBS_forwardFilteringLoop
+Rcpp::List iFFBS_forwardFilteringLoop(arma::mat& predProb, arma::mat& filtProb, arma::mat& corrector, arma::mat& logTransProbRest, arma::mat& probDyingMat, arma::mat& logProbStoSgivenSorE, arma::mat& logProbStoEgivenSorE, double logProbEtoE, double logProbEtoI, arma::imat& SocGroup, int id, int t0, int maxt_i, int numStates);
+RcppExport SEXP _BIID_iFFBS_forwardFilteringLoop(SEXP predProbSEXP, SEXP filtProbSEXP, SEXP correctorSEXP, SEXP logTransProbRestSEXP, SEXP probDyingMatSEXP, SEXP logProbStoSgivenSorESEXP, SEXP logProbStoEgivenSorESEXP, SEXP logProbEtoESEXP, SEXP logProbEtoISEXP, SEXP SocGroupSEXP, SEXP idSEXP, SEXP t0SEXP, SEXP maxt_iSEXP, SEXP numStatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type predProb(predProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type filtProb(filtProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type corrector(correctorSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logTransProbRest(logTransProbRestSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type probDyingMat(probDyingMatSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenSorE(logProbStoSgivenSorESEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenSorE(logProbStoEgivenSorESEXP);
+    Rcpp::traits::input_parameter< double >::type logProbEtoE(logProbEtoESEXP);
+    Rcpp::traits::input_parameter< double >::type logProbEtoI(logProbEtoISEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type SocGroup(SocGroupSEXP);
+    Rcpp::traits::input_parameter< int >::type id(idSEXP);
+    Rcpp::traits::input_parameter< int >::type t0(t0SEXP);
+    Rcpp::traits::input_parameter< int >::type maxt_i(maxt_iSEXP);
+    Rcpp::traits::input_parameter< int >::type numStates(numStatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_forwardFilteringLoop(predProb, filtProb, corrector, logTransProbRest, probDyingMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbEtoE, logProbEtoI, SocGroup, id, t0, maxt_i, numStates));
+    return rcpp_result_gen;
+END_RCPP
+}
+// iFFBS_forwardFilteringFinalStep
+Rcpp::List iFFBS_forwardFilteringFinalStep(arma::mat& predProb, arma::mat& filtProb, arma::mat& corrector, arma::mat& logTransProbRest, arma::mat& probDyingMat, arma::mat& logProbStoSgivenSorE, arma::mat& logProbStoEgivenSorE, double logProbEtoE, double logProbEtoI, arma::imat& SocGroup, int id, int t0, int maxt_i, int maxt, int numStates);
+RcppExport SEXP _BIID_iFFBS_forwardFilteringFinalStep(SEXP predProbSEXP, SEXP filtProbSEXP, SEXP correctorSEXP, SEXP logTransProbRestSEXP, SEXP probDyingMatSEXP, SEXP logProbStoSgivenSorESEXP, SEXP logProbStoEgivenSorESEXP, SEXP logProbEtoESEXP, SEXP logProbEtoISEXP, SEXP SocGroupSEXP, SEXP idSEXP, SEXP t0SEXP, SEXP maxt_iSEXP, SEXP maxtSEXP, SEXP numStatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type predProb(predProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type filtProb(filtProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type corrector(correctorSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logTransProbRest(logTransProbRestSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type probDyingMat(probDyingMatSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenSorE(logProbStoSgivenSorESEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenSorE(logProbStoEgivenSorESEXP);
+    Rcpp::traits::input_parameter< double >::type logProbEtoE(logProbEtoESEXP);
+    Rcpp::traits::input_parameter< double >::type logProbEtoI(logProbEtoISEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type SocGroup(SocGroupSEXP);
+    Rcpp::traits::input_parameter< int >::type id(idSEXP);
+    Rcpp::traits::input_parameter< int >::type t0(t0SEXP);
+    Rcpp::traits::input_parameter< int >::type maxt_i(maxt_iSEXP);
+    Rcpp::traits::input_parameter< int >::type maxt(maxtSEXP);
+    Rcpp::traits::input_parameter< int >::type numStates(numStatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_forwardFilteringFinalStep(predProb, filtProb, corrector, logTransProbRest, probDyingMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbEtoE, logProbEtoI, SocGroup, id, t0, maxt_i, maxt, numStates));
+    return rcpp_result_gen;
+END_RCPP
+}
+// iFFBS_backwardSampling
+Rcpp::List iFFBS_backwardSampling(arma::imat& X, arma::mat& filtProb, arma::mat& predProb, arma::mat& probDyingMat, arma::vec& alpha_js, double b, double q, double tau, int k, double K, arma::imat& SocGroup, arma::imat& mPerGroup, arma::imat& numInfecMat, int id, int birthTime, int startTime, int endTime, int t0, int maxt_i);
+RcppExport SEXP _BIID_iFFBS_backwardSampling(SEXP XSEXP, SEXP filtProbSEXP, SEXP predProbSEXP, SEXP probDyingMatSEXP, SEXP alpha_jsSEXP, SEXP bSEXP, SEXP qSEXP, SEXP tauSEXP, SEXP kSEXP, SEXP KSEXP, SEXP SocGroupSEXP, SEXP mPerGroupSEXP, SEXP numInfecMatSEXP, SEXP idSEXP, SEXP birthTimeSEXP, SEXP startTimeSEXP, SEXP endTimeSEXP, SEXP t0SEXP, SEXP maxt_iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::imat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type filtProb(filtProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type predProb(predProbSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type probDyingMat(probDyingMatSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type alpha_js(alpha_jsSEXP);
+    Rcpp::traits::input_parameter< double >::type b(bSEXP);
+    Rcpp::traits::input_parameter< double >::type q(qSEXP);
+    Rcpp::traits::input_parameter< double >::type tau(tauSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< double >::type K(KSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type SocGroup(SocGroupSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type mPerGroup(mPerGroupSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type numInfecMat(numInfecMatSEXP);
+    Rcpp::traits::input_parameter< int >::type id(idSEXP);
+    Rcpp::traits::input_parameter< int >::type birthTime(birthTimeSEXP);
+    Rcpp::traits::input_parameter< int >::type startTime(startTimeSEXP);
+    Rcpp::traits::input_parameter< int >::type endTime(endTimeSEXP);
+    Rcpp::traits::input_parameter< int >::type t0(t0SEXP);
+    Rcpp::traits::input_parameter< int >::type maxt_i(maxt_iSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_backwardSampling(X, filtProb, predProb, probDyingMat, alpha_js, b, q, tau, k, K, SocGroup, mPerGroup, numInfecMat, id, birthTime, startTime, endTime, t0, maxt_i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// iFFBS_calculateLogCorrector
+double iFFBS_calculateLogCorrector(arma::imat& X, arma::mat& corrector, int id, int t0, int maxt_i);
+RcppExport SEXP _BIID_iFFBS_calculateLogCorrector(SEXP XSEXP, SEXP correctorSEXP, SEXP idSEXP, SEXP t0SEXP, SEXP maxt_iSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::imat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type corrector(correctorSEXP);
+    Rcpp::traits::input_parameter< int >::type id(idSEXP);
+    Rcpp::traits::input_parameter< int >::type t0(t0SEXP);
+    Rcpp::traits::input_parameter< int >::type maxt_i(maxt_iSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_calculateLogCorrector(X, corrector, id, t0, maxt_i));
+    return rcpp_result_gen;
+END_RCPP
+}
+// iFFBS_updateGroupStatistics
+Rcpp::List iFFBS_updateGroupStatistics(arma::imat& X, arma::imat& numInfecMat, arma::imat& mPerGroup, arma::mat& logProbStoSgivenSorE, arma::mat& logProbStoEgivenSorE, arma::mat& logProbStoSgivenI, arma::mat& logProbStoEgivenI, arma::mat& logProbStoSgivenD, arma::mat& logProbStoEgivenD, arma::vec& alpha_js, double b, double q, double K, arma::imat& SocGroup, int id, int idNext, int m, int maxt);
+RcppExport SEXP _BIID_iFFBS_updateGroupStatistics(SEXP XSEXP, SEXP numInfecMatSEXP, SEXP mPerGroupSEXP, SEXP logProbStoSgivenSorESEXP, SEXP logProbStoEgivenSorESEXP, SEXP logProbStoSgivenISEXP, SEXP logProbStoEgivenISEXP, SEXP logProbStoSgivenDSEXP, SEXP logProbStoEgivenDSEXP, SEXP alpha_jsSEXP, SEXP bSEXP, SEXP qSEXP, SEXP KSEXP, SEXP SocGroupSEXP, SEXP idSEXP, SEXP idNextSEXP, SEXP mSEXP, SEXP maxtSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::imat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type numInfecMat(numInfecMatSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type mPerGroup(mPerGroupSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenSorE(logProbStoSgivenSorESEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenSorE(logProbStoEgivenSorESEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenI(logProbStoSgivenISEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenI(logProbStoEgivenISEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenD(logProbStoSgivenDSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenD(logProbStoEgivenDSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type alpha_js(alpha_jsSEXP);
+    Rcpp::traits::input_parameter< double >::type b(bSEXP);
+    Rcpp::traits::input_parameter< double >::type q(qSEXP);
+    Rcpp::traits::input_parameter< double >::type K(KSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type SocGroup(SocGroupSEXP);
+    Rcpp::traits::input_parameter< int >::type id(idSEXP);
+    Rcpp::traits::input_parameter< int >::type idNext(idNextSEXP);
+    Rcpp::traits::input_parameter< int >::type m(mSEXP);
+    Rcpp::traits::input_parameter< int >::type maxt(maxtSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_updateGroupStatistics(X, numInfecMat, mPerGroup, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, alpha_js, b, q, K, SocGroup, id, idNext, m, maxt));
+    return rcpp_result_gen;
+END_RCPP
+}
+// iFFBS_updateTransitionProbabilities
+Rcpp::List iFFBS_updateTransitionProbabilities(arma::cube& logProbRest, arma::mat& logTransProbRest, arma::imat& X, arma::imat& SocGroup, arma::mat& LogProbDyingMat, arma::mat& LogProbSurvMat, arma::mat& logProbStoSgivenSorE, arma::mat& logProbStoEgivenSorE, arma::mat& logProbStoSgivenI, arma::mat& logProbStoEgivenI, arma::mat& logProbStoSgivenD, arma::mat& logProbStoEgivenD, double logProbEtoE, double logProbEtoI, arma::field<arma::ivec>& whichRequireUpdate, int id, int idNext, int m, int maxt, int numStates);
+RcppExport SEXP _BIID_iFFBS_updateTransitionProbabilities(SEXP logProbRestSEXP, SEXP logTransProbRestSEXP, SEXP XSEXP, SEXP SocGroupSEXP, SEXP LogProbDyingMatSEXP, SEXP LogProbSurvMatSEXP, SEXP logProbStoSgivenSorESEXP, SEXP logProbStoEgivenSorESEXP, SEXP logProbStoSgivenISEXP, SEXP logProbStoEgivenISEXP, SEXP logProbStoSgivenDSEXP, SEXP logProbStoEgivenDSEXP, SEXP logProbEtoESEXP, SEXP logProbEtoISEXP, SEXP whichRequireUpdateSEXP, SEXP idSEXP, SEXP idNextSEXP, SEXP mSEXP, SEXP maxtSEXP, SEXP numStatesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::cube& >::type logProbRest(logProbRestSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logTransProbRest(logTransProbRestSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::imat& >::type SocGroup(SocGroupSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type LogProbDyingMat(LogProbDyingMatSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type LogProbSurvMat(LogProbSurvMatSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenSorE(logProbStoSgivenSorESEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenSorE(logProbStoEgivenSorESEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenI(logProbStoSgivenISEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenI(logProbStoEgivenISEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoSgivenD(logProbStoSgivenDSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type logProbStoEgivenD(logProbStoEgivenDSEXP);
+    Rcpp::traits::input_parameter< double >::type logProbEtoE(logProbEtoESEXP);
+    Rcpp::traits::input_parameter< double >::type logProbEtoI(logProbEtoISEXP);
+    Rcpp::traits::input_parameter< arma::field<arma::ivec>& >::type whichRequireUpdate(whichRequireUpdateSEXP);
+    Rcpp::traits::input_parameter< int >::type id(idSEXP);
+    Rcpp::traits::input_parameter< int >::type idNext(idNextSEXP);
+    Rcpp::traits::input_parameter< int >::type m(mSEXP);
+    Rcpp::traits::input_parameter< int >::type maxt(maxtSEXP);
+    Rcpp::traits::input_parameter< int >::type numStates(numStatesSEXP);
+    rcpp_result_gen = Rcpp::wrap(iFFBS_updateTransitionProbabilities(logProbRest, logTransProbRest, X, SocGroup, LogProbDyingMat, LogProbSurvMat, logProbStoSgivenSorE, logProbStoEgivenSorE, logProbStoSgivenI, logProbStoEgivenI, logProbStoSgivenD, logProbStoEgivenD, logProbEtoE, logProbEtoI, whichRequireUpdate, id, idNext, m, maxt, numStates));
+    return rcpp_result_gen;
+END_RCPP
+}
 // iFFBScalcLogProbRest
 void iFFBScalcLogProbRest(int i, int ttt, arma::cube& logProbRest, arma::imat& X, arma::imat& SocGroup, arma::mat& LogProbDyingMat, arma::mat& LogProbSurvMat, arma::mat& logProbStoSgivenSorE, arma::mat& logProbStoEgivenSorE, arma::mat& logProbStoSgivenI, arma::mat& logProbStoEgivenI, arma::mat& logProbStoSgivenD, arma::mat& logProbStoEgivenD, double& logProbEtoE, double& logProbEtoI);
 RcppExport SEXP _BIID_iFFBScalcLogProbRest(SEXP iSEXP, SEXP tttSEXP, SEXP logProbRestSEXP, SEXP XSEXP, SEXP SocGroupSEXP, SEXP LogProbDyingMatSEXP, SEXP LogProbSurvMatSEXP, SEXP logProbStoSgivenSorESEXP, SEXP logProbStoEgivenSorESEXP, SEXP logProbStoSgivenISEXP, SEXP logProbStoEgivenISEXP, SEXP logProbStoSgivenDSEXP, SEXP logProbStoEgivenDSEXP, SEXP logProbEtoESEXP, SEXP logProbEtoISEXP) {
@@ -831,6 +1017,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_BIID_gradThetasRhos", (DL_FUNC) &_BIID_gradThetasRhos, 9},
     {"_BIID_grad_", (DL_FUNC) &_BIID_grad_, 20},
     {"_BIID_iFFBS_", (DL_FUNC) &_BIID_iFFBS_, 44},
+    {"_BIID_iFFBS_initializeForwardFiltering", (DL_FUNC) &_BIID_iFFBS_initializeForwardFiltering, 8},
+    {"_BIID_iFFBS_forwardFilteringFirstStep", (DL_FUNC) &_BIID_iFFBS_forwardFilteringFirstStep, 7},
+    {"_BIID_iFFBS_forwardFilteringLoop", (DL_FUNC) &_BIID_iFFBS_forwardFilteringLoop, 14},
+    {"_BIID_iFFBS_forwardFilteringFinalStep", (DL_FUNC) &_BIID_iFFBS_forwardFilteringFinalStep, 15},
+    {"_BIID_iFFBS_backwardSampling", (DL_FUNC) &_BIID_iFFBS_backwardSampling, 19},
+    {"_BIID_iFFBS_calculateLogCorrector", (DL_FUNC) &_BIID_iFFBS_calculateLogCorrector, 5},
+    {"_BIID_iFFBS_updateGroupStatistics", (DL_FUNC) &_BIID_iFFBS_updateGroupStatistics, 18},
+    {"_BIID_iFFBS_updateTransitionProbabilities", (DL_FUNC) &_BIID_iFFBS_updateTransitionProbabilities, 20},
     {"_BIID_iFFBScalcLogProbRest", (DL_FUNC) &_BIID_iFFBScalcLogProbRest, 15},
     {"_BIID_ivecMinus1", (DL_FUNC) &_BIID_ivecMinus1, 1},
     {"_BIID_vecSeq", (DL_FUNC) &_BIID_vecSeq, 1},
