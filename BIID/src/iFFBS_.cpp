@@ -197,8 +197,6 @@ void iFFBS_(arma::vec& alpha_js,
 
   }
   
-  
-  
   // Rcout << "forward sweep: " << std::endl;
   
   // Backward Sampling --------------------------------------
@@ -211,6 +209,7 @@ void iFFBS_(arma::vec& alpha_js,
   X(id-1, endTime-1) = newStatus;
     
   // tt will start from maxt_i-2 and finish at 0
+   /// uses confusing syntaxk to do so.
   if(maxt_i>1){
     for(int tt = (maxt_i-1); tt --> 0;){
       
@@ -533,6 +532,535 @@ void iFFBS_(arma::vec& alpha_js,
   // Rcout << "logTransProbRest for next ID calculated: " << std::endl;
 
 }
+
+// ============================================================================
+// Modular iFFBS functions - exported versions of the logical blocks above
+// ============================================================================
+
+// [[Rcpp::export]]
+Rcpp::List iFFBS_initializeForwardFiltering(
+    int birthTime,
+    int startTime,
+    arma::ivec& nuTimes,
+    arma::vec& nuEs,
+    arma::vec& nuIs,
+    arma::mat& predProb,
+    int t0,
+    int numStates) {
+  
+  double nuE_i = 0.0;
+  double nuI_i = 0.0;
+  
+  if(birthTime < startTime){
+    int nuIdx = min(arma::find(nuTimes == startTime));
+    nuE_i = nuEs[nuIdx];
+    nuI_i = nuIs[nuIdx];
+  }
+  
+  predProb(t0,0) = 1.0-nuE_i-nuI_i;
+  predProb(t0,1) = nuE_i;
+  predProb(t0,2) = nuI_i;
+  predProb(t0,3) = 0.0;
+  
+  return Rcpp::List::create(
+    Rcpp::Named("nuE_i") = nuE_i,
+    Rcpp::Named("nuI_i") = nuI_i,
+    Rcpp::Named("predProb") = predProb
+  );
+}
+
+// [[Rcpp::export]]
+Rcpp::List iFFBS_forwardFilteringFirstStep(
+    arma::mat& corrector,
+    arma::mat& predProb,
+    arma::mat& filtProb,
+    arma::mat& logTransProbRest,
+    int t0,
+    int maxt,
+    int numStates) {
+  
+  arma::rowvec unnormFiltProb = arma::zeros<arma::rowvec>(numStates);
+  arma::rowvec transProbRest = arma::zeros<arma::rowvec>(numStates);
+  
+  if(t0 < maxt-1){
+    arma::rowvec logTransProbRest_row = logTransProbRest.row(t0);
+    transProbRest = normTransProbRest(logTransProbRest_row);
+    for(int s=0; s<numStates; s++){
+      unnormFiltProb[s] = corrector(t0,s) * predProb(t0,s) * transProbRest[s];
+    }
+  }else{
+    for(int s=0; s<numStates; s++){
+      unnormFiltProb[s] = corrector(t0,s) * predProb(t0,s);
+    }
+  }
+  filtProb.row(t0) = unnormFiltProb / sum(unnormFiltProb);
+  
+  return Rcpp::List::create(
+    Rcpp::Named("filtProb") = filtProb,
+    Rcpp::Named("unnormFiltProb") = unnormFiltProb
+  );
+}
+
+// [[Rcpp::export]]
+Rcpp::List iFFBS_forwardFilteringLoop(
+    arma::mat& predProb,
+    arma::mat& filtProb,
+    arma::mat& corrector,
+    arma::mat& logTransProbRest,
+    arma::mat& probDyingMat,
+    arma::mat& logProbStoSgivenSorE,
+    arma::mat& logProbStoEgivenSorE,
+    double logProbEtoE,
+    double logProbEtoI,
+    arma::imat& SocGroup,
+    int id,
+    int t0,
+    int maxt_i,
+    int numStates) {
+  
+  arma::rowvec unnormFiltProb = arma::zeros<arma::rowvec>(numStates);
+  arma::rowvec transProbRest = arma::zeros<arma::rowvec>(numStates);
+  
+  if(maxt_i>2){
+    for(int tt=1; tt<(maxt_i-1); tt++){
+      
+      int g = SocGroup(id-1, tt-1+t0);
+      double prDeath = probDyingMat(id-1, tt+t0);
+      
+      double p00 = (1-prDeath)*exp(logProbStoSgivenSorE(g-1L, tt-1+t0)); 
+      double p01 = (1-prDeath)*exp(logProbStoEgivenSorE(g-1L, tt-1+t0));
+      double p11 = (1-prDeath)*exp(logProbEtoE);
+      double p12 = (1-prDeath)*exp(logProbEtoI);
+      double p22 = (1-prDeath);
+      
+      predProb(tt+t0,0) = p00*(filtProb(tt-1+t0,0));
+      predProb(tt+t0,1) = p01*(filtProb(tt-1+t0,0)) + p11*filtProb(tt-1+t0,1);
+      predProb(tt+t0,2) = p12*(filtProb(tt-1+t0,1)) + p22*filtProb(tt-1+t0,2);
+      predProb(tt+t0,3) = prDeath*filtProb(tt-1+t0,0) + 
+                          prDeath*filtProb(tt-1+t0,1) + 
+                          prDeath*filtProb(tt-1+t0,2) +
+                          1*filtProb(tt-1+t0,3);
+      
+      arma::rowvec logTransProbRest_row = logTransProbRest.row(tt+t0);
+      transProbRest = normTransProbRest(logTransProbRest_row);
+      for(int s=0; s<numStates; s++){
+        unnormFiltProb[s] = corrector(tt+t0,s) * predProb(tt+t0,s) * transProbRest[s];
+      }
+      
+      filtProb.row(tt+t0) = unnormFiltProb / sum(unnormFiltProb);
+    }
+  }
+  
+  return Rcpp::List::create(
+    Rcpp::Named("predProb") = predProb,
+    Rcpp::Named("filtProb") = filtProb
+  );
+}
+
+// [[Rcpp::export]]
+Rcpp::List iFFBS_forwardFilteringFinalStep(
+    arma::mat& predProb,
+    arma::mat& filtProb,
+    arma::mat& corrector,
+    arma::mat& logTransProbRest,
+    arma::mat& probDyingMat,
+    arma::mat& logProbStoSgivenSorE,
+    arma::mat& logProbStoEgivenSorE,
+    double logProbEtoE,
+    double logProbEtoI,
+    arma::imat& SocGroup,
+    int id,
+    int t0,
+    int maxt_i,
+    int maxt,
+    int numStates) {
+  
+  arma::rowvec unnormFiltProb = arma::zeros<arma::rowvec>(numStates);
+  arma::rowvec transProbRest = arma::zeros<arma::rowvec>(numStates);
+  
+  if(maxt_i>=1){
+    int tt = maxt_i-1;
+    int g = SocGroup(id-1, tt-1+t0);
+    double prDeath = probDyingMat(id-1, tt+t0);
+    
+    double p00 = (1-prDeath)*exp(logProbStoSgivenSorE(g-1L, tt-1+t0)); 
+    double p01 = (1-prDeath)*exp(logProbStoEgivenSorE(g-1L, tt-1+t0));
+    double p11 = (1-prDeath)*exp(logProbEtoE);
+    double p12 = (1-prDeath)*exp(logProbEtoI);
+    double p22 = (1-prDeath);
+    
+    predProb(tt+t0,0) = p00*(filtProb(tt-1+t0,0));
+    predProb(tt+t0,1) = p01*(filtProb(tt-1+t0,0)) + p11*filtProb(tt-1+t0,1);
+    predProb(tt+t0,2) = p12*(filtProb(tt-1+t0,1)) + p22*filtProb(tt-1+t0,2);
+    predProb(tt+t0,3) = prDeath*filtProb(tt-1+t0,0) + 
+      prDeath*filtProb(tt-1+t0,1) + 
+      prDeath*filtProb(tt-1+t0,2) +
+      1*filtProb(tt-1+t0,3);
+
+    if(tt+t0 < maxt-1){
+      arma::rowvec logTransProbRest_row = logTransProbRest.row(tt+t0);
+      transProbRest = normTransProbRest(logTransProbRest_row);
+      for(int s=0; s<numStates; s++){
+        unnormFiltProb[s] = corrector(tt+t0,s) * predProb(tt+t0,s) * transProbRest[s];
+      }
+    }else{
+      for(int s=0; s<numStates; s++){
+        unnormFiltProb[s] = corrector(tt+t0,s) * predProb(tt+t0,s);
+      }
+    }
+
+    filtProb.row(tt+t0) = unnormFiltProb / sum(unnormFiltProb);
+  }
+  
+  return Rcpp::List::create(
+    Rcpp::Named("predProb") = predProb,
+    Rcpp::Named("filtProb") = filtProb
+  );
+}
+
+// [[Rcpp::export]]
+Rcpp::List iFFBS_backwardSampling(
+    arma::imat& X,
+    arma::mat& filtProb,
+    arma::mat& predProb,
+    arma::mat& probDyingMat,
+    arma::vec& alpha_js,
+    double b,
+    double q,
+    double tau,
+    int k,
+    double K,
+    arma::imat& SocGroup,
+    arma::imat& mPerGroup,
+    arma::imat& numInfecMat,
+    int id,
+    int birthTime,
+    int startTime,
+    int endTime,
+    int t0,
+    int maxt_i) {
+  
+  arma::ivec states = {0L, 3L, 1L, 9L};
+  arma::vec probs = filtProb.row(endTime-1).t();
+  
+  int newStatus = RcppArmadillo::sample(states, 1, true, probs)[0];
+  X(id-1, endTime-1) = newStatus;
+    
+  if(maxt_i>1){
+    for(int tt = (maxt_i-1); tt --> 0;){
+      
+      int g = SocGroup(id-1, tt+t0);
+      int mgt = mPerGroup(g-1, tt+t0);
+      
+      double a = alpha_js[g-1L];
+      double inf_mgt = numInfecMat(g-1, tt+t0)/(pow((double)(mgt + 1.0)/K, q));  
+      double prDeath = probDyingMat(id-1, tt+1+t0);
+      
+      double p00 = (1-prDeath)*exp(-a - b*inf_mgt);
+      double p01 = (1-prDeath)*(1 - exp(-a - b*inf_mgt));
+      double p11 = (1-prDeath)*(1.0 - ErlangCDF(1, k, tau/((double)k) ));
+      double p12 = (1-prDeath)*ErlangCDF(1, k, tau/((double)k) );
+      double p22 = (1-prDeath);
+      
+      double p09 = prDeath;
+      double p19 = prDeath;
+      double p29 = prDeath;
+      
+      double probSuscep_t=0.0;
+      double probE_t=0.0;
+      double probI_t=0.0;
+      double probDead_t=0.0;
+      
+      if(X(id-1,tt+1+t0) == 0L){
+        probSuscep_t = (p00*filtProb(tt+t0, 0))/(predProb(tt+1+t0, 0));
+        probE_t = 0.0;
+        probI_t = 0.0;
+        probDead_t = 0.0;
+      }else if(X(id-1,tt+1+t0) == 3L){
+        probSuscep_t = (p01*filtProb(tt+t0, 0))/(predProb(tt+1+t0, 1));
+        probE_t = (p11*filtProb(tt+t0, 1))/(predProb(tt+1+t0, 1));
+        probI_t = 0.0;
+        probDead_t = 0.0;
+      }else if(X(id-1,tt+1+t0) == 1L){
+        probSuscep_t = 0.0;
+        probE_t = (p12*filtProb(tt+t0, 1))/(predProb(tt+1+t0, 2));
+        probI_t = (p22*filtProb(tt+t0, 2))/(predProb(tt+1+t0, 2));
+        probDead_t = 0.0;
+      }else if(X(id-1,tt+1+t0) == 9L){
+        probSuscep_t = (p09*filtProb(tt+t0, 0))/(predProb(tt+1+t0, 3));
+        probE_t = (p19*filtProb(tt+t0, 1))/(predProb(tt+1+t0, 3));
+        probI_t = (p29*filtProb(tt+t0, 2))/(predProb(tt+1+t0, 3));
+        probDead_t = filtProb(tt+t0, 3)/predProb(tt+1+t0, 3);
+      }
+      
+      probs = {probSuscep_t, probE_t, probI_t, probDead_t};
+      
+      if((tt==0L)&&(birthTime>=startTime)){
+        probs = {1.0, 0.0, 0.0, 0.0};
+      }
+
+      int newStatus = RcppArmadillo::sample(states, 1, true, probs)[0];
+      X(id-1, tt+t0) = newStatus;
+    }
+  }
+  
+  return Rcpp::List::create(
+    Rcpp::Named("X") = X
+  );
+}
+
+// [[Rcpp::export]]
+double iFFBS_calculateLogCorrector(
+    arma::imat& X,
+    arma::mat& corrector,
+    int id,
+    int t0,
+    int maxt_i) {
+  
+  double sumLogCorrector = 0.0;
+  
+  for (int tt=0; tt<maxt_i; tt++) {
+    if(X(id-1, tt+t0) == 0L){
+      sumLogCorrector += log(corrector(tt+t0, 0L));
+    }else if(X(id-1, tt+t0) == 3L){
+      sumLogCorrector += log(corrector(tt+t0, 1L));
+    }else if(X(id-1, tt+t0) == 1L){
+      sumLogCorrector += log(corrector(tt+t0, 2L));
+    }else if(X(id-1, tt+t0) == 9L){
+      sumLogCorrector += log(corrector(tt+t0, 3L));
+    }
+  }
+  
+  return sumLogCorrector;
+}
+
+// [[Rcpp::export]]
+Rcpp::List iFFBS_updateGroupStatistics(
+    arma::imat& X,
+    arma::imat& numInfecMat,
+    arma::imat& mPerGroup,
+    arma::mat& logProbStoSgivenSorE,
+    arma::mat& logProbStoEgivenSorE,
+    arma::mat& logProbStoSgivenI,
+    arma::mat& logProbStoEgivenI,
+    arma::mat& logProbStoSgivenD,
+    arma::mat& logProbStoEgivenD,
+    arma::vec& alpha_js,
+    double b,
+    double q,
+    double K,
+    arma::imat& SocGroup,
+    int id,
+    int idNext,
+    int m,
+    int maxt) {
+  
+  for(unsigned int tt=0; tt<(maxt-1L); tt++){
+  
+    int g = SocGroup(id-1, tt);
+    int g_idNext = SocGroup(idNext, tt);
+
+    if((g==g_idNext)&&(g!=0L)){
+      
+      int infecToAdd = 0L;
+      if(X(id-1,tt)==1L){
+        infecToAdd += 1L;
+      }
+      if(X(idNext,tt)==1L){
+        infecToAdd -= 1L;
+      }
+
+      if((X(id-1,tt)==1L) || (X(idNext,tt)==1L)){
+        numInfecMat(g_idNext-1L, tt) += infecToAdd;
+      }
+
+      int mToAdd = 0L;
+      if((X(id-1,tt)==0L) || (X(id-1,tt)==1L)  || (X(id-1,tt)==3L)){
+        mToAdd += 1L;
+      }
+      if((X(idNext,tt)==0L) || (X(idNext,tt)==1L)  || (X(idNext,tt)==3L)){
+        mToAdd -= 1L;
+      }
+      
+      if( ((X(id-1,tt)==0L) || (X(id-1,tt)==1L)  || (X(id-1,tt)==3L)) || 
+          ((X(idNext,tt)==0L) || (X(idNext,tt)==1L)  || (X(idNext,tt)==3L)) ){
+        mPerGroup(g_idNext-1L, tt) += mToAdd;
+      }
+            
+      if(id<m){
+        
+        double a = alpha_js[g_idNext-1L];
+        
+        int mgt;
+        double inf_mgt;
+        mgt = mPerGroup(g_idNext-1L, tt);
+        
+        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenSorE(g_idNext-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenSorE(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        
+        inf_mgt = (numInfecMat(g_idNext-1L, tt)+1L)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenI(g_idNext-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenI(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        
+        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)mgt/K, q));
+        logProbStoSgivenD(g_idNext-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenD(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+      }
+      
+    }else{
+      
+      if(g!=0L){
+        if(X(id-1,tt)==1L){
+          numInfecMat(g-1, tt) += 1L;
+        }
+        if( (X(id-1,tt)==0L) || (X(id-1,tt)==1L)  || (X(id-1,tt)==3L) ){
+          mPerGroup(g-1, tt) += 1L;
+        }
+      }
+      
+      if((id<m)&&(g!=0L)){
+        
+        double a = alpha_js[g-1L];
+        
+        int mgt;
+        double inf_mgt;
+        
+        mgt = mPerGroup(g-1L, tt); 
+        
+        inf_mgt = numInfecMat(g-1L, tt)/(pow((double)mgt/K, q));
+        logProbStoSgivenSorE(g-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenSorE(g-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        
+        logProbStoSgivenI(g-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenI(g-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        
+        logProbStoSgivenD(g-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenD(g-1L, tt) = Rf_log1mexp(a + b*inf_mgt);    
+      }
+            
+      if(g_idNext!=0L){
+        if(X(idNext,tt)==1L){
+          numInfecMat(g_idNext-1, tt) -= 1L;
+        }
+        if( (X(idNext,tt)==0L) || (X(idNext,tt)==1L)  || (X(idNext,tt)==3L) ){
+          mPerGroup(g_idNext-1, tt) -= 1L;
+        }
+      }
+
+      if((id<m)&&(g_idNext!=0L)){
+        
+        double a = alpha_js[g_idNext-1L];
+        
+        int mgt;
+        double inf_mgt;
+        mgt = mPerGroup(g_idNext-1L, tt);
+        
+        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenSorE(g_idNext-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenSorE(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        
+        inf_mgt = (numInfecMat(g_idNext-1L, tt)+1L)/(pow((double)(mgt + 1.0)/K, q));
+        logProbStoSgivenI(g_idNext-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenI(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+        
+        inf_mgt = numInfecMat(g_idNext-1L, tt)/(pow((double)mgt/K, q));
+        logProbStoSgivenD(g_idNext-1L, tt) = -a -b*inf_mgt;
+        logProbStoEgivenD(g_idNext-1L, tt) = Rf_log1mexp(a + b*inf_mgt);
+      }
+    }
+  }
+  
+  return Rcpp::List::create(
+    Rcpp::Named("numInfecMat") = numInfecMat,
+    Rcpp::Named("mPerGroup") = mPerGroup,
+    Rcpp::Named("logProbStoSgivenSorE") = logProbStoSgivenSorE,
+    Rcpp::Named("logProbStoEgivenSorE") = logProbStoEgivenSorE,
+    Rcpp::Named("logProbStoSgivenI") = logProbStoSgivenI,
+    Rcpp::Named("logProbStoEgivenI") = logProbStoEgivenI,
+    Rcpp::Named("logProbStoSgivenD") = logProbStoSgivenD,
+    Rcpp::Named("logProbStoEgivenD") = logProbStoEgivenD
+  );
+}
+
+// [[Rcpp::export]]
+Rcpp::List iFFBS_updateTransitionProbabilities(
+    arma::cube& logProbRest,
+    arma::mat& logTransProbRest,
+    arma::imat& X,
+    arma::imat& SocGroup,
+    arma::mat& LogProbDyingMat,
+    arma::mat& LogProbSurvMat,
+    arma::mat& logProbStoSgivenSorE,
+    arma::mat& logProbStoEgivenSorE,
+    arma::mat& logProbStoSgivenI,
+    arma::mat& logProbStoEgivenI,
+    arma::mat& logProbStoSgivenD,
+    arma::mat& logProbStoEgivenD,
+    double logProbEtoE,
+    double logProbEtoI,
+    arma::field<arma::ivec>& whichRequireUpdate,
+    int id,
+    int idNext,
+    int m,
+    int maxt,
+    int numStates) {
+  
+  if(id<m){
+    
+    int c = (id-1)*(maxt-1);
+    int g_1;
+
+    for(unsigned int tt=0; tt<maxt-1L; tt++){
+      
+      iFFBScalcLogProbRest(id-1L, tt, logProbRest, X, SocGroup, 
+                           LogProbDyingMat, LogProbSurvMat, 
+                           logProbStoSgivenSorE, logProbStoEgivenSorE, 
+                           logProbStoSgivenI, logProbStoEgivenI, 
+                           logProbStoSgivenD, logProbStoEgivenD, 
+                           logProbEtoE, logProbEtoI);      
+      
+      for(int s=0; s<numStates; s++){
+        logTransProbRest(tt, s) += (logProbRest(tt,s,id-1L) - logProbRest(tt,s,idNext));
+        logProbRest(tt,s,idNext) = 0.0;
+      }
+      
+      for(auto & jj : whichRequireUpdate(c + tt)){
+      
+        if(X(jj, tt)==0L){
+
+          for(int s=0; s<numStates; s++){
+            logTransProbRest(tt, s) -= logProbRest(tt,s,jj);
+          }
+              
+          g_1 = SocGroup(jj, tt)-1L;
+          
+          if(X(jj, tt+1)==0L){
+            logProbRest(tt,0,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenSorE(g_1, tt);
+            logProbRest(tt,1,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenSorE(g_1, tt);
+            logProbRest(tt,2,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenI(g_1, tt);
+            logProbRest(tt,3,jj) = LogProbSurvMat(jj, tt+1) + logProbStoSgivenD(g_1, tt);
+          }else if(X(jj, tt+1)==3L){
+            logProbRest(tt,0,jj) = LogProbSurvMat(jj, tt+1) + logProbStoEgivenSorE(g_1, tt);
+            logProbRest(tt,1,jj) = LogProbSurvMat(jj, tt+1) + logProbStoEgivenSorE(g_1, tt);
+            logProbRest(tt,2,jj) = LogProbSurvMat(jj, tt+1) + logProbStoEgivenI(g_1, tt);
+            logProbRest(tt,3,jj) = LogProbSurvMat(jj, tt+1) + logProbStoEgivenD(g_1, tt);
+          }
+              
+          for(int s=0; s<numStates; s++){
+            logTransProbRest(tt, s) += logProbRest(tt,s,jj);
+          }
+        }
+      }
+    }
+  }
+  
+  return Rcpp::List::create(
+    Rcpp::Named("logProbRest") = logProbRest,
+    Rcpp::Named("logTransProbRest") = logTransProbRest
+  );
+}
+
 
 // Using this:
 // for(auto & jj : whichRequireUpdate(c + tt)){

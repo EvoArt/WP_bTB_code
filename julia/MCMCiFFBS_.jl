@@ -504,9 +504,9 @@ function MCMCiFFBS_(N,
     
     # Start MCMC iterations -------------------------------------------
     t = time()
-    io = open("log.txt", "w+")
-    logger = SimpleLogger(io)
-    global_logger(logger)
+    #io = open("log.txt", "w+")
+    #logger = SimpleLogger(io)
+    #global_logger(logger)
     for iter in 1:N
         
         lambda = exp(pars[G+1])
@@ -1114,7 +1114,7 @@ function MCMCiFFBS_(N,
         if (iter) % 100 == 0
             println("Saving checkpoint at iteration $(iter)...")
             
-            @info "iter = $(iter), rate = $((time()-t)/100)"
+            #@info "iter = $(iter), rate = $((time()-t)/100)"
             t = time()
             
             # Save as JLD2 (native Julia, faster)
